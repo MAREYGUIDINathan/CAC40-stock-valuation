@@ -1,13 +1,17 @@
+import httpx
 import streamlit as st
 import pandas as pd
 import altair as alt
 from datetime import datetime, timedelta
 
+API = "http://localhost:8000"
 
-@st.cache_data
-def create_df() -> pd.DataFrame:
-    data = pd.read_parquet("airflow/data/engie2026-03-28 11:40:42.696876.parquet")
-    return data
+@st.cache_data(ttl=60)
+def create_df(period: str = "5y") -> pd.DataFrame:
+    r = httpx.get(f"{API}", params={"period": period})
+    if r.status_code == 200:
+        return pd.DataFrame(r.json()["data"]).set_index("Date")
+    return pd.DataFrame()
 
 
 def line_chart(data_filtered: pd.DataFrame) -> None:
@@ -78,53 +82,27 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
     st.altair_chart(line_chart, width="stretch")
 
 
-def filter_data_by_period(data, period_selected) -> pd.DataFrame:
-    days = 2000
-    today = datetime.today().date()
-    end_date = str(today)
-
-    if period_selected == "1M":
-        days = 30
-    elif period_selected == "6M":
-        days = 180
-
-    elif period_selected == "CY":
-        start_date = str(today.replace(month=1, day=1))
-        return data.loc[start_date:end_date]
-
-    elif period_selected == "1Y":
-        days = 365
-    elif period_selected == "5Y":
-        days = 1825
-    start_date = str((today - timedelta(days=days)))
-
-    return data.loc[start_date:end_date]
-
-
-data = create_df()
-
-
 # Show Title
 st.title("Beginner Introduction to Stock Market")
 
 # Show button
 with st.container(horizontal=True, horizontal_alignment="left"):
-    period_selected = "default"
+    period_selected = "5y"
     if st.button("1M", type="secondary"):
-        period_selected = "1M"
+        period_selected = "1m"
     if st.button("6M"):
-        period_selected = "6M"
+        period_selected = "6m"
     if st.button("CY"):
         period_selected = "CY"
     if st.button("1Y"):
-        period_selected = "1Y"
+        period_selected = "1y"
     if st.button("5Y"):
-        period_selected = "5Y"
+        period_selected = "5y"
 
-data_filtered = filter_data_by_period(data, period_selected)
+data = create_df(period_selected)
 
 # Show line chart
-line_chart(data_filtered)
+line_chart(data)
 
 # Show Table
-st.table(data_filtered.head())
+st.table(data.head())

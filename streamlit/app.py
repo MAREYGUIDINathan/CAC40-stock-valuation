@@ -1,4 +1,3 @@
-from calendar import month
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -11,7 +10,7 @@ def create_df() -> pd.DataFrame:
     return data
 
 
-def line_chart(data_filtered: pd.DataFrame):
+def line_chart(data_filtered: pd.DataFrame) -> None:
     # Affichage d'un graphique centré sur la moyenne avec une échelle pertinente (Close vs. Datetime)
     data = data_filtered.reset_index()
     y_min = data_filtered["Close"].min()
@@ -79,7 +78,7 @@ def line_chart(data_filtered: pd.DataFrame):
     st.altair_chart(line_chart, width="stretch")
 
 
-def filter_data_by_period(data, period_selected):
+def filter_data_by_period(data, period_selected) -> pd.DataFrame:
     days = 2000
     today = datetime.today().date()
     end_date = str(today)

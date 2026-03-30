@@ -1,10 +1,11 @@
+import os
 import httpx
 import streamlit as st
 import pandas as pd
 import altair as alt
 from datetime import datetime, timedelta
 
-API = "http://localhost:8000"
+API = os.getenv("API_BASE_URL", "http://fastapi:8000")
 
 @st.cache_data(ttl=60)
 def create_df(period: str = "5y") -> pd.DataFrame:

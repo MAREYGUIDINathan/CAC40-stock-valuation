@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
-from tracemalloc import start
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 import pandas as pd
 
 
@@ -34,26 +33,5 @@ def get_ticker(period: str):
 
     return {
         "ticker": "ENGI",
-        "data": df.to_dict(orient="records")
+        "data": df.reset_index().to_dict(orient="records")
     }
-
-    # days = 2000
-    # today = datetime.today().date()
-    # end_date = str(today)
-
-    # if period_selected == "1M":
-    #     days = 30
-    # elif period_selected == "6M":
-    #     days = 180
-
-    # elif period_selected == "CY":
-    #     start_date = str(today.replace(month=1, day=1))
-    #     return data.loc[start_date:end_date]
-
-    # elif period_selected == "1Y":
-    #     days = 365
-    # elif period_selected == "5Y":
-    #     days = 1825
-    # start_date = str((today - timedelta(days=days)))
-
-    # return data.loc[start_date:end_date]

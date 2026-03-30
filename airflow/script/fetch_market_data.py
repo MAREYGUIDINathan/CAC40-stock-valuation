@@ -1,7 +1,10 @@
 import yfinance as yf
+from datetime import datetime
 
 EDF = yf.Ticker("ENGI.PA")
 
-df = EDF.history(period="5d", interval="1m")
+df = EDF.history(period="3y", interval="1d")
 
-df.to_parquet("airflow/data/edf_last5d_1min.parquet")
+today_date = datetime.today()
+
+df.to_parquet(f"airflow/data/engie.parquet")

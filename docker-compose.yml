@@ -46,10 +46,21 @@ services:
       context: ./FastAPI
       dockerfile: Dockerfile
     container_name: market_fastapi
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: airflow
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
     volumes:
       - ./airflow/data:/app/airflow/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     command: uvicorn app:app --host 0.0.0.0 --port 8000
     restart: unless-stopped
 
@@ -63,7 +74,7 @@ services:
     environment:
       API_BASE_URL: http://fastapi:8000
     ports:
-      - "8501:8501"
+      - "127.0.0.1:8501:8501"
     command: streamlit run app.py --server.address 0.0.0.0 --server.port 8501
     restart: unless-stopped
 
@@ -75,6 +86,7 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -86,7 +98,7 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s

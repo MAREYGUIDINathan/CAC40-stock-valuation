@@ -1,20 +1,49 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
+import os
 
+import pandas as pd
 import yfinance as yf
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from sqlalchemy import create_engine, text
+
+
+tickerStrings = ["ENGI.PA", "AIR.PA"]
+
+
+def _postgres_connection_url() -> str:
+    user = os.getenv("POSTGRES_USER", "airflow")
+    password = os.getenv("POSTGRES_PASSWORD", "airflow")
+    host = os.getenv("POSTGRES_HOST", "postgres")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    database = os.getenv("POSTGRES_DB", "airflow")
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 
 
 def fetch_engie_data() -> None:
-    ticker = yf.Ticker("ENGI.PA")
-    df = ticker.history(period="3y", interval="1d")
+    df_list = []
+    for ticker in tickerStrings:
+        data = yf.download(ticker, group_by="Ticker", period="5y", interval="1d")
+        data = data.stack(level=0).rename_axis(["Date", "Ticker"]).reset_index(level=1)
+        data["Ticker"] = ticker
+        df_list.append(data.reset_index())
+    df = pd.concat(df_list)
+    rows = df.to_dict(orient="records")
 
-    output_dir = Path("/opt/airflow/data")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(output_dir / "engie.parquet")
+    engine = create_engine(_postgres_connection_url())
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO market_data.daily_prices ("Date", "Open", "High", "Low", "Close", "Volume", "Ticker")
+                VALUES (:Date, :Open, :High, :Low, :Close, :Volume, :Ticker)
+                ON CONFLICT ("Date", "Ticker") DO NOTHING
+                """
+            ),
+            rows,
+        )
 
 
 with DAG(

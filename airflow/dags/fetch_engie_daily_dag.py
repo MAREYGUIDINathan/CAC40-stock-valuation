@@ -9,7 +9,6 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from sqlalchemy import create_engine, text
 
-
 tickerStrings = ["ENGI.PA", "AIR.PA"]
 
 
@@ -25,23 +24,35 @@ def _postgres_connection_url() -> str:
 def fetch_engie_data() -> None:
     df_list = []
     for ticker in tickerStrings:
-        data = yf.download(ticker, group_by="Ticker", period="5y", interval="1d")
-        data = data.stack(level=0).rename_axis(["Date", "Ticker"]).reset_index(level=1)
+        data = yf.download(
+            ticker, group_by="Ticker", period="5y", interval="1d"
+        )
+        data = (
+            data.stack(level=0)
+            .rename_axis(["Date", "Ticker"])
+            .reset_index(level=1)
+        )
         data["Ticker"] = ticker
         df_list.append(data.reset_index())
-    df = pd.concat(df_list)
+    df = pd.concat(df_list, ignore_index=True)
+
+    # Ignore incomplete market rows to avoid storing NaN values in Postgres.
+    required_columns = ["Open", "High", "Low", "Close", "Volume"]
+    df = df.dropna(subset=required_columns)
+
+    if df.empty:
+        return
+
     rows = df.to_dict(orient="records")
 
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
         connection.execute(
-            text(
-                """
+            text("""
                 INSERT INTO market_data.daily_prices ("Date", "Open", "High", "Low", "Close", "Volume", "Ticker")
                 VALUES (:Date, :Open, :High, :Low, :Close, :Volume, :Ticker)
                 ON CONFLICT ("Date", "Ticker") DO NOTHING
-                """
-            ),
+                """),
             rows,
         )
 

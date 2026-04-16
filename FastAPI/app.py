@@ -9,8 +9,9 @@ PERIODS = {
     "1m": timedelta(days=30),
     "6m": timedelta(days=180),
     "1y": timedelta(days=365),
-    "5y": timedelta(days=365*5)
+    "5y": timedelta(days=365 * 5),
 }
+
 
 def _postgres_connection_url() -> str:
     user = os.getenv("POSTGRES_USER", "airflow")
@@ -26,7 +27,7 @@ def get_ticker(period: str, ticker: str = "ENGI.PA"):
     today = datetime.today().date()
 
     if period == "CY":
-        start_date = today.replace(month=1,day=1)
+        start_date = today.replace(month=1, day=1)
     else:
         if period not in PERIODS:
             raise HTTPException(
@@ -38,22 +39,18 @@ def get_ticker(period: str, ticker: str = "ENGI.PA"):
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
         result = connection.execute(
-            text(
-                """
+            text("""
                 SELECT "Date", "Open", "High", "Low", "Close", "Volume", "Ticker"
                 FROM market_data.daily_prices
                 WHERE "Ticker" = :ticker
                   AND "Date" BETWEEN :start_date AND :end_date
                 ORDER BY "Date" ASC
-                """
-            ),
+                """),
             {"ticker": ticker, "start_date": start_date, "end_date": today},
         )
         records = [dict(row) for row in result.mappings()]
         for record in records:
             record["Date"] = record["Date"].isoformat()
-
-
 
     return {
         "ticker": ticker,

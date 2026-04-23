@@ -9,8 +9,8 @@ API = os.getenv("API_BASE_URL", "http://fastapi:8000")
 
 
 @st.cache_data(ttl=60)
-def create_df(period: str = "5y") -> pd.DataFrame:
-    r = httpx.get(f"{API}", params={"period": period})
+def create_df(period: str = "5y", ticker: str = "ENGI.PA") -> pd.DataFrame:
+    r = httpx.get(f"{API}", params={"period": period, "ticker": ticker})
     if r.status_code == 200:
         return pd.DataFrame(r.json()["data"]).set_index("Date")
     return pd.DataFrame()
@@ -97,11 +97,13 @@ st.subheader(
 if "ticker_selected" not in st.session_state:
     st.session_state["ticker_selected"] = "ENGI.PA"
 
-st.selectbox(
+
+st.session_state["ticker_selected"] = st.selectbox(
     "Sélectionnez une action",
-    options=httpx.get(f"{API}/tickers").json()["tickers"],
-    index=httpx.get(f"{API}/tickers").json()["tickers"].index(st.session_state["ticker_selected"])
+    options=httpx.get(f"{API}/tickers").json()["tickers"]
 )
+
+st.write(f"Cours de cloture de : **{st.session_state['ticker_selected']}**")
 
 if "period_filter" not in st.session_state:
     st.session_state["period_filter"] = "5y" 
@@ -119,7 +121,7 @@ with st.container(horizontal=True, horizontal_alignment="left"):
     if st.button("5Y"):
         st.session_state["period_filter"] = "5y"
 
-data = create_df(st.session_state["period_filter"])
+data = create_df(st.session_state["period_filter"], st.session_state["ticker_selected"])
 
 # Show line chart
 line_chart(data)

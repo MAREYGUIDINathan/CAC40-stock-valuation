@@ -95,21 +95,23 @@ st.subheader(
     "Explorer les données",
 )
 
+if "period_filter" not in st.session_state:
+    st.session_state["period_filter"] = "5y" 
+
 # Show button
 with st.container(horizontal=True, horizontal_alignment="left"):
-    period_selected = "5y"
     if st.button("1M", type="secondary"):
-        period_selected = "1m"
+        st.session_state["period_filter"] = "1m"
     if st.button("6M"):
-        period_selected = "6m"
+        st.session_state["period_filter"] = "6m"
     if st.button("CY"):
-        period_selected = "CY"
+        st.session_state["period_filter"] = "CY"
     if st.button("1Y"):
-        period_selected = "1y"
+        st.session_state["period_filter"] = "1y"
     if st.button("5Y"):
-        period_selected = "5y"
+        st.session_state["period_filter"] = "5y"
 
-data = create_df(period_selected)
+data = create_df(st.session_state["period_filter"])
 
 # Show line chart
 line_chart(data)

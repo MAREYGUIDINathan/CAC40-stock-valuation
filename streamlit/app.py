@@ -126,6 +126,27 @@ data = create_df(st.session_state["period_filter"], st.session_state["ticker_sel
 # Show line chart
 line_chart(data)
 
+# Show description
+st.expander("*cours de clôture*", icon="❓").write("""
+**Définition**  
+Le cours de clôture est le prix de l'action à la fin de la journée de négociation.
+
+---
+
+**Importance pour les investisseurs**  
+C'est une référence importante car elle reflète la valeur réelle de l'action à un moment donné.
+
+**Utilisations principales**
+- Calculer les rendements
+- Analyser les indicateurs techniques
+- Prendre des décisions d'investissement
+
+**Facteurs d'influence**
+- Nouvelles économiques
+- Résultats financiers de l'entreprise
+- Événements mondiaux
+- Tendances du marché
+""")
 
 pages = [
     [0, "La bourse"],
@@ -148,13 +169,11 @@ with st.container(horizontal=True, width="content"):
 
 match st.session_state["page_selected"]:
     case 0:
-        with st.container(border=True):
-            st.write("#### La bourse c'est un marché")
+        with st.expander("La bourse c'est un marché"):
             st.write("""
             La Bourse est un lieu où s’échangent des produits financiers, appelés « instruments financiers », ou valeurs mobilières.  
             """)
-        with st.container(border=True):
-            st.write("#### Instruments financiers")
+        with st.expander("Instruments financiers"):
             st.write("""
             Les différents instruments financiers sont :  
             - les **actions** (titres de propriété d'une partie du capital d'une entreprise), 
@@ -185,13 +204,11 @@ match st.session_state["page_selected"]:
                     ##### OPCVM
                     - Propre à chaque OPCVM
                     """)
-        with st.container(border=True):
-            st.write("#### Confrontation de l'offre et de la demande")
+        with st.expander("Confrontation de l'offre et de la demande"):
             st.write("""
             Comme sur tous les marchés, le prix dépend de l’offre et de la demande. Si l’offre est supérieure à la demande, le prix diminue pour atteindre l’équilibre. À l’inverse, quand la demande est supérieure à l’offre, le prix augmente pour atteindre l’équilibre.
             """)
-        with st.container(border=True):
-            st.write("#### La liquidité des marchés financiers")
+        with st.expander("La liquidité des marchés financiers"):
             st.write("""
             La fonction première de la Bourse est de permettre aux investisseurs d’acheter et de vendre leurs titres sur le marché secondaire.  
             C’est ce qu’on appelle la liquidité. 

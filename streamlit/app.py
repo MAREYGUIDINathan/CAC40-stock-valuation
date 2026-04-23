@@ -339,14 +339,41 @@ st.subheader("IV - Valorisation de l'Entreprise")
 
 create_sync_ticker_selectbox("Sélectionnez une action", "ticker_select_2")
 
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.popover("P/E Ratio", icon="❓").write("""
+    **Définition**  
+    Le ratio P/E (Price-to-Earnings) est un indicateur de valorisation qui compare le prix de l'action aux bénéfices par action (EPS) de l'entreprise.  
+
+    **Calcul**  
+    P/E Ratio = Prix de l'action / Bénéfice par action (EPS)
+    """)
+with col2:
+    st.popover("PEG Ratio", icon="❓").write("""
+    **Définition**  
+    Le ratio PEG (Price-to-Earnings Growth) est un indicateur de valorisation qui tient compte de la croissance des bénéfices.
+
+    **Calcul**  
+    PEG Ratio = P/E Ratio / Croissance des bénéfices
+    """)
+with col3:
+    st.popover("Dividend Yield", icon="❓").write("""
+    **Définition**  
+    Le rendement des dividendes est le rapport entre les dividendes versés par une action et son prix de marché.
+
+    **Calcul**  
+    Dividend Yield = (Dividende par action / Prix de l'action) * 100
+    """)
 # -------------------------------------
 #  V - Santé Financière
 # -------------------------------------
-
+st.subheader("V - Santé Financière")
+create_sync_ticker_selectbox("Sélectionnez une action", "ticker_select_3")
 # -------------------------------------
 #  VI - Analyse Stratégique
 # -------------------------------------
-
+st.subheader("VI - Analyse Stratégique")
+create_sync_ticker_selectbox("Sélectionnez une action", "ticker_select_4")
 # -------------------------------------
 #  Bonus - Explorer les données
 # -------------------------------------

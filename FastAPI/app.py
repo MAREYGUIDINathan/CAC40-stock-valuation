@@ -85,3 +85,51 @@ def get_tickers():
             status_code=500,
             detail=f"Error fetching tickers: {str(e)}"
         )
+
+
+@app.get("/metrics")
+def get_metrics(period: str, ticker: str = "ENGI.PA"):
+    """Calculate and return price metrics for a given period and ticker."""
+    today = datetime.today().date()
+
+    if period == "CY":
+        start_date = today.replace(month=1, day=1)
+    else:
+        if period not in PERIODS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid period '{period}'. Allowed values: {', '.join(['CY', *PERIODS.keys()])}",
+            )
+        start_date = today - PERIODS[period]
+
+    engine = create_engine(_postgres_connection_url())
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                SELECT "Close"
+                FROM market_data.daily_prices
+                WHERE "Ticker" = :ticker
+                  AND "Date" BETWEEN :start_date AND :end_date
+                ORDER BY "Date" ASC
+                """),
+            {"ticker": ticker, "start_date": start_date, "end_date": today},
+        )
+        close_prices = [row[0] for row in result.fetchall()]
+
+    if not close_prices:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No data found for ticker '{ticker}' in the given period"
+        )
+
+    current_price = close_prices[-1]
+    previous_price = close_prices[0]
+    percentage_change = ((current_price - previous_price) / previous_price) * 100
+
+    return {
+        "ticker": ticker,
+        "period": period,
+        "current_price": float(current_price),
+        "previous_price": float(previous_price),
+        "percentage_change": float(percentage_change),
+    }

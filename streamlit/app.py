@@ -37,9 +37,9 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         .mark_line()
         .encode(
             x=alt.X(
-                "Date:T",
+                "Date:O",
                 title="Day",
-                axis=alt.Axis(format="%m/%Y", labelAngle=90, tickCount="month"),
+                # axis=alt.Axis(format="%m/%Y", labelAngle=90, tickCount="month"),
             ),
             y=alt.Y(
                 "Close:Q",
@@ -47,7 +47,7 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
                 scale=alt.Scale(domain=[y_min, y_max]),
             ),
             tooltip=[
-                alt.Tooltip("Date:T", title="Date"),
+                alt.Tooltip("Date:O", title="Date"),
                 alt.Tooltip("Close:Q", title="Cours de clôture"),
             ],
         )
@@ -58,7 +58,7 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         alt.Chart(data)
         .mark_point(color="transparent")
         .encode(
-            x="Date:T",
+            x="Date:O",
             y="Close:Q",
         )
         .add_params(nearest)
@@ -69,7 +69,7 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         alt.Chart(data)
         .mark_rule(color="gray")
         .encode(
-            x="Date:T",
+            x="Date:O",
         )
         .transform_filter(nearest)
     )
@@ -78,7 +78,7 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
     points = (
         alt.Chart(data)
         .mark_point(color="red", size=70)
-        .encode(x="Date:T", y="Close:Q")
+        .encode(x="Date:O", y="Close:Q")
         .transform_filter(nearest)
     )
 

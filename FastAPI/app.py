@@ -57,3 +57,31 @@ def get_ticker(period: str, ticker: str = "ENGI.PA"):
         "period": period,
         "data": records,
     }
+
+
+def _get_unique_tickers() -> list:
+    """Fetch all unique tickers from the database."""
+    engine = create_engine(_postgres_connection_url())
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                SELECT DISTINCT "Ticker"
+                FROM market_data.daily_prices
+                ORDER BY "Ticker" ASC
+                """)
+        )
+        tickers = [row[0] for row in result.fetchall()]
+    return tickers
+
+
+@app.get("/tickers")
+def get_tickers():
+    """Return list of unique tickers available in the database."""
+    try:
+        tickers = _get_unique_tickers()
+        return {"tickers": tickers}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching tickers: {str(e)}"
+        )

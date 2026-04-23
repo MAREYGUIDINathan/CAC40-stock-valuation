@@ -91,8 +91,106 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
 # Show Title
 st.title("Introduction to Stock Market", text_alignment="center")
 
+# -------------------------------------
+#   Sommaire
+# -------------------------------------
+
+st.subheader("Sommaire")
+
+
+# -------------------------------------
+#   Introduction
+# -------------------------------------
+
+st.subheader("Introduction")
+st.write("""
+Bienvenue dans cette application d'introduction à la bourse !  
+
+Ici, vous pouvez explorer les données de marché de différentes actions, comprendre les concepts clés de la bourse, et apprendre comment les investisseurs prennent des décisions basées sur les données.  
+
+Que vous soyez un débutant ou que vous souhaitez approfondir vos connaissances, cette application est conçue pour vous !   
+""")
+
+# -------------------------------------
+#   Les Fondamentaux de la Bourse
+# -------------------------------------
+
+st.subheader("I - Les Fondamentaux de la Bourse")
+
+st.write("""
+La bourse est un marché où s’échangent des produits financiers, appelés « instruments financiers », ou valeurs mobilières.  
+ 
+Les différents instruments financiers sont :  
+
+- les **actions** (titres de propriété d'une partie du capital d'une entreprise), 
+- les **obligations** (prêt d'argent contractuel à un organisme public ou privé), 
+- les **parts d'OPCVM** (Organismes de Placement Collectif en Valeurs Mobilières).  
+
+Devenir propriétaire d'une valeurs mobilières donne accèes à des droits: 
+""")
+col1, col2, col3 = st.columns(3)
+with col1:
+    with st.container(border=True):
+        st.write("""
+        ##### Action
+        - Dividende
+        - Vote aux assemblées des actionnaires
+        """)
+with col2:
+    with st.container(border=True):
+        st.write("""
+        ##### Obligation
+        - Intérêt versé chaque années
+        - Remboursement à la fin du contrat
+        """)
+with col3:
+    with st.container(border=True):
+        st.write("""
+        ##### OPCVM
+        - Propre à chaque OPCVM
+        """)
+        
+st.write("""
+Comme sur tous les marchés, le prix dépend de l’offre et de la demande. Si l’offre est supérieure à la demande, le prix diminue pour atteindre l’équilibre.  
+À l’inverse, quand la demande est supérieure à l’offre, le prix augmente pour atteindre l’équilibre.  
+
+La fonction première de la Bourse est de permettre aux investisseurs d’acheter et de vendre leurs titres sur le marché secondaire. C’est ce qu’on appelle la liquidité(marché sur lequel ont lieu beaucoup de transactions.)
+""")
+
+# -------------------------------------
+# II - Comprendre ce qu'on achète
+# -------------------------------------
+
+st.subheader("II - Comprendre ce qu'on achète")
+col1, col2 = st.columns(2, border=True)
+with col1:
+    st.markdown("""##### Action""")
+    st.write("""
+    Une action représente une part de propriété dans une entreprise.  
+
+    En achetant une action, vous devenez actionnaire de cette entreprise et vous avez droit à une partie de ses bénéfices, ainsi qu'à une voix lors des assemblées générales.  
+
+    Il est important de faire des recherches sur l'entreprise avant d'investir.  
+    Cela inclut la compréhension de son modèle économique, de sa position sur le marché, de sa santé financière, et de ses perspectives de croissance.  
+    """)
+with col2:
+    st.markdown("""##### Valeur vs. Prix""")
+    st.write("""
+    Le prix d'une action est simplement le montant que les investisseurs sont prêts à payer pour une part de l'entreprise à un moment donné.  
+    
+    La valeur de l'entreprise, en revanche, est une estimation de ce que l'entreprise vaut réellement, basée sur ses actifs, ses revenus, sa croissance potentielle, et d'autres facteurs fondamentaux.  
+    
+    Il est possible qu'une action soit surévaluée (prix élevé par rapport à la valeur) ou sous-évaluée (prix bas par rapport à la valeur).
+    """)
+
+
+# -------------------------------------
+#  III - Les Données Essentielles
+# -------------------------------------
+
+# Show subtitle
 st.subheader(
-    "Explorer les données de la bourse",
+    "III - Les Données Essentielles",
 )
 
 
@@ -148,7 +246,7 @@ if metrics_response.status_code == 200:
 line_chart(data)
 
 # Show description
-st.expander("*cours de clôture*", icon="❓").write("""
+st.popover("*cours de clôture*", icon="❓").write("""
 **Définition**  
 Le cours de clôture est le prix de l'action à la fin de la journée de négociation.
 
@@ -168,76 +266,6 @@ C'est une référence importante car elle reflète la valeur réelle de l'action
 - Événements mondiaux
 - Tendances du marché
 """)
-
-pages = [
-    [0, "La bourse"],
-    [1, "Une action"],
-    [2, "Une entreprise"],
-    [3, "Un indice"],
-    [4, "Une valorisation"],
-    [5, "Un dividende"],
-    [6, "Les risques et la diversification"],
-]
-
-if "page_selected" not in st.session_state:
-    st.session_state["page_selected"] = 0
-
-st.subheader("C'est quoi ?")
-with st.container(horizontal=True, width="content"):
-    for page in pages:
-        if st.button(page[1]):
-            st.session_state["page_selected"] = page[0]
-
-match st.session_state["page_selected"]:
-    case 0:
-        with st.expander("La bourse c'est un marché"):
-            st.write("""
-            La Bourse est un lieu où s’échangent des produits financiers, appelés « instruments financiers », ou valeurs mobilières.  
-            """)
-        with st.expander("Instruments financiers"):
-            st.write("""
-            Les différents instruments financiers sont :  
-            - les **actions** (titres de propriété d'une partie du capital d'une entreprise), 
-            - les **obligations** (prêt d'argent contractuel à un organisme public ou privé), 
-            - les **parts d'OPCVM** (Organismes de Placement Collectif en Valeurs Mobilières).
-            """)
-            st.write("""
-            Devenir propriétaire d'une valeurs mobilières donne accèes à des droits: 
-            """)
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                with st.container(border=True):
-                    st.write("""
-                    ##### Action
-                    - Dividende
-                    - Vote aux assemblées des actionnaires
-                    """)
-            with col2:
-                with st.container(border=True):
-                    st.write("""
-                    ##### Obligation
-                    - Intérêt versé chaque années
-                    - Remboursement à la fin du contrat
-                    """)
-            with col3:
-                with st.container(border=True):
-                    st.write("""
-                    ##### OPCVM
-                    - Propre à chaque OPCVM
-                    """)
-        with st.expander("Confrontation de l'offre et de la demande"):
-            st.write("""
-            Comme sur tous les marchés, le prix dépend de l’offre et de la demande. Si l’offre est supérieure à la demande, le prix diminue pour atteindre l’équilibre. À l’inverse, quand la demande est supérieure à l’offre, le prix augmente pour atteindre l’équilibre.
-            """)
-        with st.expander("La liquidité des marchés financiers"):
-            st.write("""
-            La fonction première de la Bourse est de permettre aux investisseurs d’acheter et de vendre leurs titres sur le marché secondaire.  
-            C’est ce qu’on appelle la liquidité. 
-            Un marché liquide est un marché sur lequel ont lieu beaucoup de transactions. 
-            """)
-    case _:
-        st.write("### Work in Progress")
-
 
 st.markdown(
     """

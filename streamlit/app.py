@@ -92,8 +92,10 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
 st.title("Introduction to Stock Market", text_alignment="center")
 
 st.subheader(
-    "Explorer les données",
+    "Explorer les données de la bourse",
 )
+
+
 if "ticker_selected" not in st.session_state:
     st.session_state["ticker_selected"] = "ENGI.PA"
 
@@ -122,6 +124,25 @@ with st.container(horizontal=True, horizontal_alignment="left"):
         st.session_state["period_filter"] = "5y"
 
 data = create_df(st.session_state["period_filter"], st.session_state["ticker_selected"])
+
+# Fetch metrics from API
+metrics_response = httpx.get(
+    f"{API}/metrics",
+    params={"period": st.session_state["period_filter"], "ticker": st.session_state["ticker_selected"]}
+)
+
+if metrics_response.status_code == 200:
+    metrics = metrics_response.json()
+    current_price = metrics["current_price"]
+    percentage_change = metrics["percentage_change"]
+    
+    # Display metrics in columns
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Cours actuel", f"€{current_price:.2f}", f"{percentage_change:+.2f}%")
+    with col2:
+        st.metric("Variation sur la période", f"{percentage_change:+.2f}%", 
+                  delta_color="green" if percentage_change >= 0 else "red")
 
 # Show line chart
 line_chart(data)

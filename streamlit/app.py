@@ -95,9 +95,6 @@ st.title("Introduction to Stock Market", text_alignment="center")
 #   Sommaire
 # -------------------------------------
 
-st.subheader("Sommaire")
-
-
 # -------------------------------------
 #   Introduction
 # -------------------------------------
@@ -233,40 +230,72 @@ if metrics_response.status_code == 200:
     metrics = metrics_response.json()
     current_price = metrics["current_price"]
     percentage_change = metrics["percentage_change"]
-    
+    average_volume = metrics["average_volume"]
+
     # Display metrics in columns
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Cours actuel", f"€{current_price:.2f}", f"{percentage_change:+.2f}%")
     with col2:
         st.metric("Variation sur la période", f"{percentage_change:+.2f}%", 
                   delta_color="green" if percentage_change >= 0 else "red")
-
+    with col3:
+        st.metric("Volume moyen par jour", f"{metrics['average_volume']:.0f}")
 # Show line chart
 line_chart(data)
 
 # Show description
-st.popover("*cours de clôture*", icon="❓").write("""
-**Définition**  
-Le cours de clôture est le prix de l'action à la fin de la journée de négociation.
+col1, col2, col3 = st.columns(3)
+with col1:
+    with st.popover("*cours de clôture*", icon="❓"):
+        st.write("""
+    **Définition**  
+    Le cours de clôture est le prix de l'action à la fin de la journée de négociation.
 
----
+    ---
 
-**Importance pour les investisseurs**  
-C'est une référence importante car elle reflète la valeur réelle de l'action à un moment donné.
+    **Importance pour les investisseurs**  
+    C'est une référence importante car elle reflète la valeur réelle de l'action à un moment donné.
 
-**Utilisations principales**
-- Calculer les rendements
-- Analyser les indicateurs techniques
-- Prendre des décisions d'investissement
+    **Utilisations principales**
+    - Calculer les rendements
+    - Analyser les indicateurs techniques
+    - Prendre des décisions d'investissement
 
-**Facteurs d'influence**
-- Nouvelles économiques
-- Résultats financiers de l'entreprise
-- Événements mondiaux
-- Tendances du marché
-""")
+    **Facteurs d'influence**
+    - Nouvelles économiques
+    - Résultats financiers de l'entreprise
+    - Événements mondiaux
+    - Tendances du marché
+    """)
+with col2:
+    with st.popover("*Volume*", icon="❓"):
+        st.write("""
+        **Définition**  
+        Le volume est le nombre total d'actions échangées lors d'une journée de négociation.
 
+        ---
+
+        **Importance pour les investisseurs**  
+        Un volume élevé indique un fort intérêt pour l'actif, ce qui peut renforcer la confiance des investisseurs.
+
+        **Utilisations principales**
+        - Analyser la liquidité du marché
+        - Identifier les tendances de prix
+        - Valider les signaux techniques
+
+        **Facteurs d'influence**
+        - Nouvelles économiques
+        - Résultats financiers de l'entreprise
+        - Événements mondiaux
+        - Tendances du marché
+        """)
+
+
+# -------------------------------------
+#  Footer
+# -------------------------------------
+        
 st.markdown(
     """
 <hr style="margin-top:50px;">

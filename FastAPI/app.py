@@ -106,7 +106,7 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                SELECT "Close"
+                SELECT "Close", "Volume"
                 FROM market_data.daily_prices
                 WHERE "Ticker" = :ticker
                   AND "Date" BETWEEN :start_date AND :end_date
@@ -114,22 +114,21 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
                 """),
             {"ticker": ticker, "start_date": start_date, "end_date": today},
         )
-        close_prices = [row[0] for row in result.fetchall()]
+        records = [dict(row) for row in result.mappings()]
 
-    if not close_prices:
+    if not records:
         raise HTTPException(
             status_code=404,
             detail=f"No data found for ticker '{ticker}' in the given period"
         )
 
-    current_price = close_prices[-1]
-    previous_price = close_prices[0]
+    current_price = records[-1]["Close"]
+    previous_price = records[0]["Close"]
     percentage_change = ((current_price - previous_price) / previous_price) * 100
+    average_volume = sum(record["Volume"] for record in records) / len(records)
 
     return {
-        "ticker": ticker,
-        "period": period,
         "current_price": float(current_price),
-        "previous_price": float(previous_price),
         "percentage_change": float(percentage_change),
+        "average_volume": float(average_volume)
     }

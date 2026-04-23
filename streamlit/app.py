@@ -94,6 +94,14 @@ st.title("Introduction to Stock Market", text_alignment="center")
 st.subheader(
     "Explorer les données",
 )
+if "ticker_selected" not in st.session_state:
+    st.session_state["ticker_selected"] = "ENGI.PA"
+
+st.selectbox(
+    "Sélectionnez une action",
+    options=httpx.get(f"{API}/tickers").json()["tickers"],
+    index=httpx.get(f"{API}/tickers").json()["tickers"].index(st.session_state["ticker_selected"])
+)
 
 if "period_filter" not in st.session_state:
     st.session_state["period_filter"] = "5y" 

@@ -16,6 +16,52 @@ def create_df(period: str = "5y", ticker: str = "ENGI.PA") -> pd.DataFrame:
     return pd.DataFrame()
 
 
+@st.cache_data(ttl=300)
+def get_tickers_options() -> list:
+    """Récupère la liste des tickers disponibles."""
+    return httpx.get(f"{API}/tickers").json()["tickers"]
+
+
+def init_session_state():
+    """Initialise les variables du session_state."""
+    defaults = {
+        "ticker_selected": "ENGI.PA",
+        "period_filter": "5y"
+    }
+    
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+def create_sync_ticker_selectbox(label: str, key: str):
+    """Crée un selectbox synchronized automatiquement avec tous les autres ticker_selectbox.
+    
+    Tous les selectbox avec une clé commençant par 'ticker_select_' seront synchronisés automatiquement.
+    Aucune configuration supplémentaire n'est nécessaire.
+    """
+    options = get_tickers_options()
+    
+    # Initialise la clé si elle n'existe pas
+    if key not in st.session_state:
+        st.session_state[key] = "ENGI.PA"
+    
+    def sync_callback():
+        selected_value = st.session_state[key]
+        st.session_state["ticker_selected"] = selected_value
+        # Sync tous les autres selectbox ticker automatiquement
+        for session_key in st.session_state.keys():
+            if session_key.startswith("ticker_select_") and session_key != key:
+                st.session_state[session_key] = selected_value
+    
+    st.selectbox(
+        label,
+        options=options,
+        key=key,
+        on_change=sync_callback
+    )
+
+
 def line_chart(data_filtered: pd.DataFrame) -> None:
     # Affichage d'un graphique centré sur la moyenne avec une échelle pertinente (Close vs. Datetime)
     data = data_filtered.reset_index()
@@ -190,20 +236,14 @@ st.subheader(
     "III - Les Données Essentielles",
 )
 
+init_session_state()
 
-if "ticker_selected" not in st.session_state:
-    st.session_state["ticker_selected"] = "ENGI.PA"
-
-
-st.session_state["ticker_selected"] = st.selectbox(
-    "Sélectionnez une action",
-    options=httpx.get(f"{API}/tickers").json()["tickers"]
-)
+create_sync_ticker_selectbox("Sélectionnez une action", "ticker_select_1")
 
 st.write(f"Cours de cloture de : **{st.session_state['ticker_selected']}**")
 
 if "period_filter" not in st.session_state:
-    st.session_state["period_filter"] = "5y" 
+    st.session_state["period_filter"] = "5y"
 
 # Show button
 with st.container(horizontal=True, horizontal_alignment="left"):
@@ -290,7 +330,26 @@ with col2:
         - Événements mondiaux
         - Tendances du marché
         """)
+        
+# -------------------------------------
+# IV - Valorisation de l'Entreprise
+# -------------------------------------
 
+st.subheader("IV - Valorisation de l'Entreprise")
+
+create_sync_ticker_selectbox("Sélectionnez une action", "ticker_select_2")
+
+# -------------------------------------
+#  V - Santé Financière
+# -------------------------------------
+
+# -------------------------------------
+#  VI - Analyse Stratégique
+# -------------------------------------
+
+# -------------------------------------
+#  Bonus - Explorer les données
+# -------------------------------------
 
 # -------------------------------------
 #  Footer

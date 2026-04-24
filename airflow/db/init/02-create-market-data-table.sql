@@ -1,0 +1,29 @@
+CREATE TABLE IF NOT EXISTS raw.market_prices (
+    "Date" DATE NOT NULL,
+    "Open" DOUBLE PRECISION,
+    "High" DOUBLE PRECISION,
+    "Low" DOUBLE PRECISION,
+    "Close" DOUBLE PRECISION,
+    "Volume" BIGINT,
+    "Ticker" TEXT NOT NULL,
+    PRIMARY KEY ("Date", "Ticker")
+);
+
+CREATE TABLE IF NOT EXISTS raw.balance_sheet (
+    "date" DATE NOT NULL,
+    "Ticker" TEXT NOT NULL,
+    "OrdinarySharesNumber" DOUBLE PRECISION,
+    "TotalDebt" DOUBLE PRECISION,
+    "CommonStockEquity" DOUBLE PRECISION,
+    "CashAndCashEquivalents" DOUBLE PRECISION,
+    PRIMARY KEY ("date", "Ticker")
+)
+
+CREATE TABLE IF NOT EXISTS raw.financials (
+    "date" DATE NOT NULL,
+    "Ticker" TEXT NOT NULL,
+    "NetIncome" DOUBLE PRECISION,
+    "TotalRevenue" DOUBLE PRECISION,
+    "OperatingIncome" DOUBLE PRECISION,
+    PRIMARY KEY ("date", "Ticker")
+);

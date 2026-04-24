@@ -1,3 +1,0 @@
-CREATE SCHEMA IF NOT EXISTS market_data;
-
-GRANT USAGE, CREATE ON SCHEMA market_data TO airflow;

@@ -27,7 +27,7 @@ def load_prices() -> None:
     with engine.begin() as connection:
         connection.execute(
             text("""
-                INSERT INTO market_data.daily_prices ("Date", "Open", "High", "Low", "Close", "Volume", "Ticker")
+                INSERT INTO raw.market_prices ("Date", "Open", "High", "Low", "Close", "Volume", "Ticker")
                 VALUES (:Date, :Open, :High, :Low, :Close, :Volume, :Ticker)
                 ON CONFLICT ("Date", "Ticker") DO NOTHING
                 """),

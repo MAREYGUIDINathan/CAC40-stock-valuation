@@ -9,6 +9,7 @@ x-airflow-common:
     - ${ENV_FILE_PATH:-.env}
   environment:
     &airflow-common-env
+    PYTHONPATH: /opt/airflow:${PYTHONPATH:-}
     AIRFLOW__CORE__EXECUTOR: LocalExecutor 
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${POSTGRES_PASSWORD}@postgres/airflow
@@ -33,7 +34,8 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
-    - ${AIRFLOW_PROJ_DIR:-.}/airflow/data:/opt/airflow/data
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/db:/opt/airflow/db
+    - ${AIRFLOW_PROJ_DIR:-.}/airflow/pipelines:/opt/airflow/pipelines
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -55,13 +57,13 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
     volumes:
-      - ./airflow/data:/app/airflow/data
+      - ./FastAPI:/app
     depends_on:
       postgres:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
-    command: uvicorn app:app --host 0.0.0.0 --port 8000
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
 
   streamlit:
@@ -73,9 +75,11 @@ services:
       - fastapi
     environment:
       API_BASE_URL: http://fastapi:8000
+    volumes:
+      - ./streamlit:/app
     ports:
       - "127.0.0.1:8501:8501"
-    command: streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+    command: streamlit run app.py --server.address 0.0.0.0 --server.port 8501 --logger.level=debug
     restart: unless-stopped
 
   postgres:
@@ -86,7 +90,7 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d
+      - ./airflow/db/init:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
@@ -194,14 +198,15 @@ services:
         echo
         echo "Creating missing opt dirs if missing:"
         echo
-        mkdir -v -p /opt/airflow/{logs,dags,plugins,config}
+        mkdir -v -p /opt/airflow/{logs,dags,plugins,config,db,pipelines}
+        mkdir -v -p /opt/airflow/pipelines/{extract,intermediate,mart}
         echo
         echo "Airflow version:"
         /entrypoint airflow version
         echo
         echo "Files in shared volumes:"
         echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+        ls -la /opt/airflow/{logs,dags,plugins,config,db,pipelines}
         echo
         echo "Running airflow config list to create default config file if missing."
         echo
@@ -209,7 +214,7 @@ services:
         echo
         echo "Files in shared volumes:"
         echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+        ls -la /opt/airflow/{logs,dags,plugins,config,db,pipelines}
         echo
         echo "Change ownership of files in /opt/airflow to ${AIRFLOW_UID}:0"
         echo
@@ -217,11 +222,11 @@ services:
         echo
         echo "Change ownership of files in shared volumes to ${AIRFLOW_UID}:0"
         echo
-        chown -v -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins,config}
+        chown -v -R "${AIRFLOW_UID}:0" /opt/airflow/{logs,dags,plugins,config,db,pipelines}
         echo
         echo "Files in shared volumes:"
         echo
-        ls -la /opt/airflow/{logs,dags,plugins,config}
+        ls -la /opt/airflow/{logs,dags,plugins,config,db,pipelines}
 
     # yamllint enable rule:line-length
     environment:

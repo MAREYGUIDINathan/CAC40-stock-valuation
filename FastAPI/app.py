@@ -41,7 +41,7 @@ def get_ticker(period: str, ticker: str = "ENGI.PA"):
         result = connection.execute(
             text("""
                 SELECT "Date", "Open", "High", "Low", "Close", "Volume", "Ticker"
-                FROM market_data.market_prices
+                FROM raw.market_prices
                 WHERE "Ticker" = :ticker
                   AND "Date" BETWEEN :start_date AND :end_date
                 ORDER BY "Date" ASC
@@ -66,7 +66,7 @@ def _get_unique_tickers() -> list:
         result = connection.execute(
             text("""
                 SELECT DISTINCT "Ticker"
-                FROM market_data.daily_prices
+                FROM raw.market_prices
                 ORDER BY "Ticker" ASC
                 """)
         )
@@ -107,7 +107,7 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
         result = connection.execute(
             text("""
                 SELECT "Close", "Volume"
-                FROM market_data.daily_prices
+                FROM raw.market_prices
                 WHERE "Ticker" = :ticker
                   AND "Date" BETWEEN :start_date AND :end_date
                 ORDER BY "Date" ASC

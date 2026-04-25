@@ -10,7 +10,7 @@ from airflow.operators.python import PythonOperator
 from sqlalchemy import create_engine, text
 from pipelines.extract.stock_prices import load_prices
 from pipelines.extract.balance_sheet import load_balance_sheet
-
+from pipelines.extract.financials import load_financials
 
 
 with DAG(
@@ -28,4 +28,8 @@ with DAG(
     t_balance_sheet = PythonOperator(
         task_id="load_balance_sheet",
         python_callable=load_balance_sheet,
+    )
+    t_financials = PythonOperator(
+        task_id="load_financials",
+        python_callable=load_financials,
     )

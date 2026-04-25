@@ -41,7 +41,7 @@ def get_ticker(period: str, ticker: str = "ENGI.PA"):
         result = connection.execute(
             text("""
                 SELECT "Date", "Open", "High", "Low", "Close", "Volume", "Ticker"
-                FROM market_data.daily_prices
+                FROM market_data.market_prices
                 WHERE "Ticker" = :ticker
                   AND "Date" BETWEEN :start_date AND :end_date
                 ORDER BY "Date" ASC

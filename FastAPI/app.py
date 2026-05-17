@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
 from sqlalchemy import bindparam, create_engine, text
@@ -142,4 +142,62 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
         "current_price": float(current_price),
         "percentage_change": float(percentage_change),
         "average_volume": float(average_volume)
+    }
+
+
+@app.get("/ratios")
+def get_ratios(
+    period: str,
+    ratio: Literal["PE", "PS"],
+    tickers: Annotated[list[str], Query()] = ["ENGI.PA"],
+):
+    """Return PE/EPS or PS/SPS series from mart.pe_ps_ratios."""
+    today = datetime.today().date()
+
+    if period == "CY":
+        start_date = today.replace(month=1, day=1)
+    else:
+        if period not in PERIODS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid period '{period}'. Allowed values: {', '.join(['CY', *PERIODS.keys()])}",
+            )
+        start_date = today - PERIODS[period]
+
+    tickers = list(dict.fromkeys(tickers))
+    if not tickers:
+        return {"tickers": [], "period": period, "ratio": ratio, "data": []}
+
+    if ratio == "PE":
+        columns = '"Date", "Ticker", "PE", "eps"'
+    else:
+        columns = '"Date", "Ticker", "PS", "sps"'
+
+    query = text(f"""
+        SELECT {columns}
+        FROM mart.pe_ps_ratios
+        WHERE "Ticker" IN :tickers
+          AND "Date" BETWEEN :start_date AND :end_date
+        ORDER BY "Ticker" ASC, "Date" ASC
+        """).bindparams(bindparam("tickers", expanding=True))
+
+    engine = create_engine(_postgres_connection_url())
+    with engine.begin() as connection:
+        result = connection.execute(
+            query,
+            {"tickers": tickers, "start_date": start_date, "end_date": today},
+        )
+        records = [dict(row) for row in result.mappings()]
+        for record in records:
+            record["Date"] = record["Date"].isoformat()
+            if ratio == "PE":
+                record["EPS"] = record.pop("eps")
+            else:
+                record["SPS"] = record.pop("sps")
+
+    return {
+        "tickers": tickers,
+        "period": period,
+        "ratio": ratio,
+        "data": records,
     }

@@ -14,11 +14,12 @@ st.set_page_config(
 )
 
 @st.cache_data(ttl=60)
-def create_df(period: str = "5y", ticker: str = "ENGI.PA") -> pd.DataFrame:
-    r = httpx.get(f"{API}", params={"period": period, "ticker": ticker})
-    if r.status_code == 200:
-        return pd.DataFrame(r.json()["data"]).set_index("Date")
-    return pd.DataFrame()
+def create_df(period: str = "5Y", tickers: tuple[str, ...] = ("ENGI.PA",)) -> pd.DataFrame:
+    r = httpx.get(f"{API}", params={"period": period, "ticker": list(tickers)}, timeout=30.0)
+    if r.status_code != 200:
+        return pd.DataFrame()
+    df = pd.DataFrame(r.json()["data"])
+    return df
 
 
 @st.cache_data(ttl=300)
@@ -31,12 +32,14 @@ def get_tickers_options() -> list:
             st.session_state[key] = value
 
 def line_chart(data_filtered: pd.DataFrame) -> None:
-    # Affichage d'un graphique centré sur la moyenne avec une échelle pertinente (Close vs. Datetime)
-    data = data_filtered.reset_index()
+    if data_filtered.empty:
+        st.info("Aucune donnée disponible pour la sélection.")
+        return
+
+    data = data_filtered.reset_index(drop=True)
     y_min = data_filtered["Close"].min()
     y_max = data_filtered["Close"].max()
 
-    # Utilise selection_point pour la sélection "hover"
     nearest = alt.selection_point(
         name="Select",
         encodings=["x"],
@@ -45,10 +48,9 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         nearest=True,
     )
 
-    # Line chart
     line = (
         alt.Chart(data)
-        .mark_line()
+        .mark_line(point=False)
         .encode(
             x=alt.X(
                 "Date:O",
@@ -60,31 +62,30 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
                 title="Cours de clôture",
                 scale=alt.Scale(domain=[y_min, y_max]),
             ),
+            color=alt.Color("Ticker:N", title="Entreprise"),
             tooltip=[
+                alt.Tooltip("Ticker:N", title="Entreprise"),
                 alt.Tooltip("Date:O", title="Date"),
-                alt.Tooltip("Close:Q", title="Cours de clôture"),
+                alt.Tooltip("Close:Q", title="Cours de clôture", format=".2f"),
             ],
         )
     )
 
-    # Sélecteurs transparents pour la détection du hover
     selectors = (
         alt.Chart(data)
-        .mark_point(color="transparent")
+        .mark_point(opacity=0, size=1)
         .encode(
             x="Date:O",
             y="Close:Q",
+            color="Ticker:N",
         )
         .add_params(nearest)
     )
 
-    # Droite verticale qui suit la souris (sélection)
     rules = (
         alt.Chart(data)
         .mark_rule(color="gray")
-        .encode(
-            x="Date:O",
-        )
+        .encode(x="Date:O")
         .transform_filter(nearest)
     )
 
@@ -118,7 +119,10 @@ période = {"1M": "1 mois", "6M": "6 mois", "CY": "Cette année", "1Y": "1 an", 
 
 st.write(f"{len(st.session_state['ticker_selected'])} entreprise(s) sélectionnée(s)  ·  {ratio}  ·  {période[st.session_state['period_filter']]} ")
 
-data = create_df(st.session_state["period_filter"], st.session_state["ticker_selected"])
+selected_tickers = st.session_state.get("ticker_selected") or []
+if isinstance(selected_tickers, str):
+    selected_tickers = [selected_tickers]
+data = create_df(st.session_state["period_filter"], tuple(selected_tickers))
 
 # Fetch metrics from API
 if st.session_state["ticker_selected"]:

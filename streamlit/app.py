@@ -104,39 +104,38 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
 with st.sidebar:
     st.header("val.cac40")
 
-    st.session_state["ticker_selected"]  = st.pills("ENTREPRISES", get_tickers_options(), selection_mode="single", required=True, default=get_tickers_options()[0])
+    st.session_state["ticker_selected"]  = st.pills("ENTREPRISES", get_tickers_options(), selection_mode="multi", default=get_tickers_options()[0])
     
     st.session_state["period_filter"] = st.pills("PÉRIODE", ["1M", "6M", "CY", "1Y", "5Y"], selection_mode="single", required=True, default="5Y")
 
-    st.pills("RATIO", ["P/E Ratio", "P/S Ratio", "Dividend Yield"], selection_mode="single", required=True, default="P/E Ratio")
+    ratio = st.pills("RATIO", ["P/E Ratio", "P/S Ratio", "Dividend Yield"], selection_mode="single", required=True, default="P/E Ratio")
 
 
 # Show Title
 st.title("Valorisation des actions du CAC 40", text_alignment="left")
 
+période = {"1M": "1 mois", "6M": "6 mois", "CY": "Cette année", "1Y": "1 an", "5Y": "5 ans"}
+
+st.write(f"{len(st.session_state['ticker_selected'])} entreprise(s) sélectionnée(s)  ·  {ratio}  ·  {période[st.session_state['period_filter']]} ")
+
 data = create_df(st.session_state["period_filter"], st.session_state["ticker_selected"])
 
 # Fetch metrics from API
-metrics_response = httpx.get(
-    f"{API}/metrics",
-    params={"period": st.session_state["period_filter"], "ticker": st.session_state["ticker_selected"]}
-)
+if st.session_state["ticker_selected"]:
+    with st.container(horizontal=True):
+        for entreprise in st.session_state["ticker_selected"]:
+            metrics_response = httpx.get(
+                f"{API}/metrics",
+                params={"period": st.session_state["period_filter"], "ticker": entreprise}
+            )
 
-if metrics_response.status_code == 200:
-    metrics = metrics_response.json()
-    current_price = metrics["current_price"]
-    percentage_change = metrics["percentage_change"]
-    average_volume = metrics["average_volume"]
+            if metrics_response.status_code == 200:
+                metrics = metrics_response.json()
+                current_price = metrics["current_price"]
+                percentage_change = metrics["percentage_change"]
 
-    # Display metrics in columns
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Cours actuel", f"€{current_price:.2f}", f"{percentage_change:+.2f}%")
-    with col2:
-        st.metric("Variation sur la période", f"{percentage_change:+.2f}%", 
-                  delta_color="green" if percentage_change >= 0 else "red")
-    with col3:
-        st.metric("Volume moyen par jour", f"{metrics['average_volume']:.0f}")
+                st.metric(f"{entreprise} cours", f"{current_price:.2f}€", f"{percentage_change:+.2f}%", border=True)
+
 # Show line chart
 line_chart(data)
 
@@ -185,12 +184,7 @@ with col2:
         - Résultats financiers de l'entreprise
         - Événements mondiaux
         - Tendances du marché
-        """)
-        
-# -------------------------------------
-# IV - Valorisation de l'Entreprise
-# -------------------------------------
-
+        """)        
 col1, col2, col3 = st.columns(3)
 with col1:
     st.popover("P/E Ratio", icon="❓").write("""

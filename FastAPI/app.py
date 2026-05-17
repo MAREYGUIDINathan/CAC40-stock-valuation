@@ -1,15 +1,17 @@
 import os
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException
-from sqlalchemy import create_engine, text
+from typing import Annotated
+
+from fastapi import FastAPI, HTTPException, Query
+from sqlalchemy import bindparam, create_engine, text
 
 app = FastAPI()
 
 PERIODS = {
-    "1m": timedelta(days=30),
-    "6m": timedelta(days=180),
-    "1y": timedelta(days=365),
-    "5y": timedelta(days=365 * 5),
+    "1M": timedelta(days=30),
+    "6M": timedelta(days=180),
+    "1Y": timedelta(days=365),
+    "5Y": timedelta(days=365 * 5),
 }
 
 
@@ -23,7 +25,10 @@ def _postgres_connection_url() -> str:
 
 
 @app.get("/")
-def get_ticker(period: str, ticker: str = "ENGI.PA"):
+def get_ticker(
+    period: str,
+    ticker: Annotated[list[str], Query()] = ["ENGI.PA"],
+):
     today = datetime.today().date()
 
     if period == "CY":
@@ -36,24 +41,30 @@ def get_ticker(period: str, ticker: str = "ENGI.PA"):
             )
         start_date = today - PERIODS[period]
 
+    tickers = list(dict.fromkeys(ticker))
+    if not tickers:
+        return {"tickers": [], "period": period, "data": []}
+
+    query = text("""
+        SELECT "Date", "Open", "High", "Low", "Close", "Volume", "Ticker"
+        FROM raw.market_prices
+        WHERE "Ticker" IN :tickers
+          AND "Date" BETWEEN :start_date AND :end_date
+        ORDER BY "Ticker" ASC, "Date" ASC
+        """).bindparams(bindparam("tickers", expanding=True))
+
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
         result = connection.execute(
-            text("""
-                SELECT "Date", "Open", "High", "Low", "Close", "Volume", "Ticker"
-                FROM raw.market_prices
-                WHERE "Ticker" = :ticker
-                  AND "Date" BETWEEN :start_date AND :end_date
-                ORDER BY "Date" ASC
-                """),
-            {"ticker": ticker, "start_date": start_date, "end_date": today},
+            query,
+            {"tickers": tickers, "start_date": start_date, "end_date": today},
         )
         records = [dict(row) for row in result.mappings()]
         for record in records:
             record["Date"] = record["Date"].isoformat()
 
     return {
-        "ticker": ticker,
+        "tickers": tickers,
         "period": period,
         "data": records,
     }

@@ -42,11 +42,17 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
 
     nearest = alt.selection_point(
         name="Select",
-        encodings=["x"],
+        encodings=["x", "y"],
         on="mouseover",
         empty=False,
         nearest=True,
     )
+
+    tooltip = [
+        alt.Tooltip("Ticker:N", title="Entreprise"),
+        alt.Tooltip("Date:O", title="Date"),
+        alt.Tooltip("Close:Q", title="Cours de clôture", format=".2f"),
+    ]
 
     line = (
         alt.Chart(data)
@@ -63,21 +69,17 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
                 scale=alt.Scale(domain=[y_min, y_max]),
             ),
             color=alt.Color("Ticker:N", title="Entreprise"),
-            tooltip=[
-                alt.Tooltip("Ticker:N", title="Entreprise"),
-                alt.Tooltip("Date:O", title="Date"),
-                alt.Tooltip("Close:Q", title="Cours de clôture", format=".2f"),
-            ],
         )
     )
 
     selectors = (
         alt.Chart(data)
-        .mark_point(opacity=0, size=1)
+        .mark_point(opacity=0, size=200)
         .encode(
             x="Date:O",
             y="Close:Q",
             color="Ticker:N",
+            tooltip=tooltip,
         )
         .add_params(nearest)
     )
@@ -89,11 +91,16 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         .transform_filter(nearest)
     )
 
-    # Afficher un point sur la courbe sous la souris
+    # Point + tooltip sur la courbe la plus proche de la souris (x et y)
     points = (
         alt.Chart(data)
         .mark_point(color="red", size=70)
-        .encode(x="Date:O", y="Close:Q")
+        .encode(
+            x="Date:O",
+            y="Close:Q",
+            color="Ticker:N",
+            tooltip=tooltip,
+        )
         .transform_filter(nearest)
     )
 

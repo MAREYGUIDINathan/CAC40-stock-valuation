@@ -26,22 +26,76 @@ def create_df(period: str = "5Y", tickers: tuple[str, ...] = ("ENGI.PA",)) -> pd
 def get_tickers_options() -> list:
     """Récupère la liste des tickers disponibles."""
     return httpx.get(f"{API}/tickers").json()["tickers"]
-    
-    for key, value in defaults.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
 
-def line_chart(data_filtered: pd.DataFrame) -> None:
+
+RATIO_LABEL_TO_API = {
+    "P/E Ratio": "PE",
+    "P/S Ratio": "PS",
+}
+
+_SERIES_CONFIG = {
+    None: {
+        "y_col": "Close",
+        "y_title": "Cours de clôture",
+        "x_title": "Day",
+        "secondary_col": None,
+        "secondary_title": None,
+        "empty_message": "Aucune donnée disponible pour la sélection.",
+    },
+    "PE": {
+        "y_col": "PE",
+        "y_title": "P/E Ratio",
+        "x_title": "Date",
+        "secondary_col": "EPS",
+        "secondary_title": "BPA (EPS)",
+        "empty_message": "Aucune donnée de ratio disponible pour la sélection.",
+    },
+    "PS": {
+        "y_col": "PS",
+        "y_title": "P/S Ratio",
+        "x_title": "Date",
+        "secondary_col": "SPS",
+        "secondary_title": "CA par action (SPS)",
+        "empty_message": "Aucune donnée de ratio disponible pour la sélection.",
+    },
+}
+
+
+def _series_config(ratio: str | None = None) -> dict:
+    return _SERIES_CONFIG[ratio]
+
+
+@st.cache_data(ttl=60)
+def create_ratios_df(
+    period: str = "5Y",
+    tickers: tuple[str, ...] = ("ENGI.PA",),
+    ratio: str = "PE",
+) -> pd.DataFrame:
+    r = httpx.get(
+        f"{API}/ratios",
+        params={"period": period, "ratio": ratio, "tickers": list(tickers)},
+        timeout=30.0,
+    )
+    if r.status_code != 200:
+        return pd.DataFrame()
+    return pd.DataFrame(r.json()["data"])
+
+
+def line_chart(data_filtered: pd.DataFrame, ratio: str | None = None) -> None:
+    """Line chart for prices (ratio=None) or PE/PS ratios."""
+    cfg = _series_config(ratio)
+    y_col = cfg["y_col"]
+
     if data_filtered.empty:
-        st.info("Aucune donnée disponible pour la sélection.")
+        st.info(cfg["empty_message"])
         return
 
     data = data_filtered.reset_index(drop=True)
-    y_min = data_filtered["Close"].min()
-    y_max = data_filtered["Close"].max()
+    y_min = data[y_col].min()
+    y_max = data[y_col].max()
 
     nearest = alt.selection_point(
-        name="Select",
+        name=f"Select_{y_col}",
         encodings=["x", "y"],
         on="mouseover",
         empty=False,
@@ -51,21 +105,25 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
     tooltip = [
         alt.Tooltip("Ticker:N", title="Entreprise"),
         alt.Tooltip("Date:O", title="Date"),
-        alt.Tooltip("Close:Q", title="Cours de clôture", format=".2f"),
+        alt.Tooltip(f"{y_col}:Q", title=cfg["y_title"], format=".2f"),
     ]
+    if cfg["secondary_col"]:
+        tooltip.append(
+            alt.Tooltip(
+                f"{cfg['secondary_col']}:Q",
+                title=cfg["secondary_title"],
+                format=".2f",
+            )
+        )
 
     line = (
         alt.Chart(data)
         .mark_line(point=False)
         .encode(
-            x=alt.X(
-                "Date:O",
-                title="Day",
-                # axis=alt.Axis(format="%m/%Y", labelAngle=90, tickCount="month"),
-            ),
+            x=alt.X("Date:O", title=cfg["x_title"]),
             y=alt.Y(
-                "Close:Q",
-                title="Cours de clôture",
+                f"{y_col}:Q",
+                title=cfg["y_title"],
                 scale=alt.Scale(domain=[y_min, y_max]),
             ),
             color=alt.Color("Ticker:N", title="Entreprise"),
@@ -77,7 +135,7 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         .mark_point(opacity=0, size=200)
         .encode(
             x="Date:O",
-            y="Close:Q",
+            y=f"{y_col}:Q",
             color="Ticker:N",
             tooltip=tooltip,
         )
@@ -91,23 +149,96 @@ def line_chart(data_filtered: pd.DataFrame) -> None:
         .transform_filter(nearest)
     )
 
-    # Point + tooltip sur la courbe la plus proche de la souris (x et y)
     points = (
         alt.Chart(data)
         .mark_point(color="red", size=70)
         .encode(
             x="Date:O",
-            y="Close:Q",
+            y=f"{y_col}:Q",
             color="Ticker:N",
             tooltip=tooltip,
         )
         .transform_filter(nearest)
     )
 
-    # Combine
-    line_chart = alt.layer(line, selectors, rules, points)
+    st.altair_chart(alt.layer(line, selectors, rules, points), width="stretch")
 
-    st.altair_chart(line_chart, width="stretch")
+
+def bar_chart(data_filtered: pd.DataFrame, ratio: str) -> None:
+    """Bar chart of latest PE/PS value per ticker."""
+    cfg = _series_config(ratio)
+    y_col = cfg["y_col"]
+
+    if data_filtered.empty:
+        st.info(cfg["empty_message"])
+        return
+
+    latest = (
+        data_filtered.sort_values("Date")
+        .groupby("Ticker", as_index=False)
+        .last()
+    )
+
+    tooltip = [
+        alt.Tooltip("Ticker:N", title="Entreprise"),
+        alt.Tooltip("Date:O", title="Dernière date"),
+        alt.Tooltip(f"{y_col}:Q", title=cfg["y_title"], format=".2f"),
+    ]
+    if cfg["secondary_col"]:
+        tooltip.append(
+            alt.Tooltip(
+                f"{cfg['secondary_col']}:Q",
+                title=cfg["secondary_title"],
+                format=".2f",
+            )
+        )
+
+    chart = (
+        alt.Chart(latest)
+        .mark_bar()
+        .encode(
+            x=alt.X("Ticker:N", title="Entreprise", sort="-y"),
+            y=alt.Y(f"{y_col}:Q", title=cfg["y_title"]),
+            color=alt.Color("Ticker:N", title="Entreprise", legend=None),
+            tooltip=tooltip,
+        )
+    )
+
+    st.altair_chart(chart, width="stretch")
+
+
+def _latest_per_ticker(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["Ticker", *columns])
+    return (
+        df.sort_values("Date")
+        .groupby("Ticker", as_index=False)
+        .last()[["Ticker", *columns]]
+    )
+
+
+def build_summary_table(
+    period: str,
+    tickers: tuple[str, ...],
+    prices_df: pd.DataFrame,
+) -> pd.DataFrame:
+    summary = pd.DataFrame({"Entreprise": list(tickers)})
+
+    cours = _latest_per_ticker(prices_df, ["Close"]).rename(
+        columns={"Ticker": "Entreprise", "Close": "Cours"}
+    )
+    pe = _latest_per_ticker(create_ratios_df(period, tickers, "PE"), ["PE", "EPS"]).rename(
+        columns={"Ticker": "Entreprise", "PE": "P/E", "EPS": "EPS"}
+    )
+    ps = _latest_per_ticker(create_ratios_df(period, tickers, "PS"), ["PS", "SPS"]).rename(
+        columns={"Ticker": "Entreprise", "PS": "P/S", "SPS": "SPS"}
+    )
+
+    for part in (cours, pe, ps):
+        summary = summary.merge(part, on="Entreprise", how="left")
+
+    return summary[["Entreprise", "Cours", "P/E", "P/S", "EPS", "SPS"]]
+
 
 with st.sidebar:
     st.header("val.cac40")
@@ -131,6 +262,7 @@ if isinstance(selected_tickers, str):
     selected_tickers = [selected_tickers]
 data = create_df(st.session_state["period_filter"], tuple(selected_tickers))
 
+st.subheader(f"Évolution du cours")
 # Fetch metrics from API
 if st.session_state["ticker_selected"]:
     with st.container(horizontal=True):
@@ -148,79 +280,49 @@ if st.session_state["ticker_selected"]:
                 st.metric(f"{entreprise} cours", f"{current_price:.2f}€", f"{percentage_change:+.2f}%", border=True)
 
 # Show line chart
-line_chart(data)
+with st.container():
+    line_chart(data)
 
-# Show description
-col1, col2, col3 = st.columns(3)
-with col1:
-    with st.popover("*cours de clôture*", icon="❓"):
-        st.write("""
-    **Définition**  
-    Le cours de clôture est le prix de l'action à la fin de la journée de négociation.
+# Show ratio charts
+ratio_api = RATIO_LABEL_TO_API.get(ratio)
+if ratio_api and selected_tickers:
+    ratios_df = create_ratios_df(
+        st.session_state["period_filter"],
+        tuple(selected_tickers),
+        ratio_api,
+    )
+    st.subheader(f"Évolution du {ratio}")
+    with st.container(horizontal=True):
+        with st.container():
+            st.caption("Courbe dans le temps")
+            line_chart(ratios_df, ratio=ratio_api)
+        with st.container():
+            st.caption("Dernière valeur par entreprise")
+            bar_chart(ratios_df, ratio_api)
+elif ratio and ratio not in RATIO_LABEL_TO_API:
+    st.info("Le Dividend Yield n'est pas encore disponible via l'API.")
 
-    ---
 
-    **Importance pour les investisseurs**  
-    C'est une référence importante car elle reflète la valeur réelle de l'action à un moment donné.
-
-    **Utilisations principales**
-    - Calculer les rendements
-    - Analyser les indicateurs techniques
-    - Prendre des décisions d'investissement
-
-    **Facteurs d'influence**
-    - Nouvelles économiques
-    - Résultats financiers de l'entreprise
-    - Événements mondiaux
-    - Tendances du marché
-    """)
-with col2:
-    with st.popover("*Volume*", icon="❓"):
-        st.write("""
-        **Définition**  
-        Le volume est le nombre total d'actions échangées lors d'une journée de négociation.
-
-        ---
-
-        **Importance pour les investisseurs**  
-        Un volume élevé indique un fort intérêt pour l'actif, ce qui peut renforcer la confiance des investisseurs.
-
-        **Utilisations principales**
-        - Analyser la liquidité du marché
-        - Identifier les tendances de prix
-        - Valider les signaux techniques
-
-        **Facteurs d'influence**
-        - Nouvelles économiques
-        - Résultats financiers de l'entreprise
-        - Événements mondiaux
-        - Tendances du marché
-        """)        
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.popover("P/E Ratio", icon="❓").write("""
-    **Définition**  
-    Le ratio P/E (Price-to-Earnings) est un indicateur de valorisation qui compare le prix de l'action aux bénéfices par action (EPS) de l'entreprise.  
-
-    **Calcul**  
-    P/E Ratio = Prix de l'action / Bénéfice par action (EPS)
-    """)
-with col2:
-    st.popover("PEG Ratio", icon="❓").write("""
-    **Définition**  
-    Le ratio PEG (Price-to-Earnings Growth) est un indicateur de valorisation qui tient compte de la croissance des bénéfices.
-
-    **Calcul**  
-    PEG Ratio = P/E Ratio / Croissance des bénéfices
-    """)
-with col3:
-    st.popover("Dividend Yield", icon="❓").write("""
-    **Définition**  
-    Le rendement des dividendes est le rapport entre les dividendes versés par une action et son prix de marché.
-
-    **Calcul**  
-    Dividend Yield = (Dividende par action / Prix de l'action) * 100
-    """)
+if selected_tickers:
+    st.subheader("Tableau récapitulatif")
+    summary_df = build_summary_table(
+        st.session_state["period_filter"],
+        tuple(selected_tickers),
+        data,
+    )
+    st.dataframe(
+        summary_df,
+        column_config={
+            "Entreprise": st.column_config.TextColumn("Entreprise"),
+            "Cours": st.column_config.NumberColumn("Cours", format="%.2f €"),
+            "P/E": st.column_config.NumberColumn("P/E", format="%.2f"),
+            "P/S": st.column_config.NumberColumn("P/S", format="%.2f"),
+            "EPS": st.column_config.NumberColumn("EPS", format="%.2f"),
+            "SPS": st.column_config.NumberColumn("SPS", format="%.2f"),
+        },
+        hide_index=True,
+        width="stretch",
+    )
 
 # -------------------------------------
 #  Footer

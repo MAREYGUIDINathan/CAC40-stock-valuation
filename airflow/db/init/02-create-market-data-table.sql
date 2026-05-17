@@ -27,3 +27,13 @@ CREATE TABLE IF NOT EXISTS raw.financials (
     "OperatingIncome" DOUBLE PRECISION,
     PRIMARY KEY ("Date", "Ticker")
 );
+
+CREATE TABLE IF NOT EXISTS mart.pe_ps_ratios (
+    "Date" DATE NOT NULL,
+    "Ticker" TEXT NOT NULL,
+    "PE" DOUBLE PRECISION,
+    "PS" DOUBLE PRECISION,
+    "sps" DOUBLE PRECISION,
+    "eps" DOUBLE PRECISION,
+    PRIMARY KEY ("Date", "Ticker")
+);

@@ -2,12 +2,12 @@ import yfinance as yf
 import pandas as pd
 from db.connection import _postgres_connection_url
 from sqlalchemy import create_engine, text
-from config.ticker import tickerStrings
+from config.ticker import get_cac40_tickers
 
 
 def load_financials() -> None:
     df_list = []
-    for ticker in tickerStrings:
+    for ticker in get_cac40_tickers():
         data = yf.Ticker(ticker).get_financials().T
         data["Ticker"] = ticker
         df_list.append(data.reset_index(names="Date"))

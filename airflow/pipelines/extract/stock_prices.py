@@ -2,12 +2,12 @@ import yfinance as yf
 import pandas as pd
 from db.connection import _postgres_connection_url
 from sqlalchemy import create_engine, text
-from config.ticker import tickerStrings
+from config.ticker import get_cac40_tickers
 
 
 def load_prices() -> None:
     df_list = []
-    for ticker in tickerStrings:
+    for ticker in get_cac40_tickers():
         data = yf.download(ticker, group_by="Ticker", period="5y", interval="1d")
         data = data.stack(level=0).rename_axis(["Date", "Ticker"]).reset_index(level=1)
         data["Ticker"] = ticker

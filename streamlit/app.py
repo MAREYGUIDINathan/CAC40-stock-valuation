@@ -25,7 +25,12 @@ def create_df(period: str = "5Y", tickers: tuple[str, ...] = ("ENGI.PA",)) -> pd
 @st.cache_data(ttl=300)
 def get_tickers_options() -> list:
     """Récupère la liste des tickers disponibles."""
-    return httpx.get(f"{API}/tickers").json()["tickers"]
+    tickers_info = httpx.get(f"{API}/tickers").json()["tickers"]
+    names = [ticker["name"] for ticker in tickers_info]
+    mapping_name_ticker = {}
+    for ticker in tickers_info:
+        mapping_name_ticker[ticker["name"]] = ticker["ticker"]
+    return [mapping_name_ticker, names] 
 
 
 RATIO_LABEL_TO_API = {
@@ -243,7 +248,7 @@ def build_summary_table(
 with st.sidebar:
     st.header("val.cac40")
 
-    st.session_state["ticker_selected"]  = st.pills("ENTREPRISES", get_tickers_options(), selection_mode="multi", default=get_tickers_options()[0])
+    st.session_state["ticker_selected"]  = st.pills("ENTREPRISES", get_tickers_options()[1], selection_mode="multi")
     
     st.session_state["period_filter"] = st.pills("PÉRIODE", ["1M", "6M", "CY", "1Y", "5Y"], selection_mode="single", required=True, default="5Y")
 
@@ -257,7 +262,7 @@ période = {"1M": "1 mois", "6M": "6 mois", "CY": "Cette année", "1Y": "1 an", 
 
 st.write(f"{len(st.session_state['ticker_selected'])} entreprise(s) sélectionnée(s)  ·  {ratio}  ·  {période[st.session_state['period_filter']]} ")
 
-selected_tickers = st.session_state.get("ticker_selected") or []
+selected_tickers = [get_tickers_options()[0][entreprise] for entreprise in st.session_state.get("ticker_selected")] or []
 if isinstance(selected_tickers, str):
     selected_tickers = [selected_tickers]
 data = create_df(st.session_state["period_filter"], tuple(selected_tickers))
@@ -269,7 +274,7 @@ if st.session_state["ticker_selected"]:
         for entreprise in st.session_state["ticker_selected"]:
             metrics_response = httpx.get(
                 f"{API}/metrics",
-                params={"period": st.session_state["period_filter"], "ticker": entreprise}
+                params={"period": st.session_state["period_filter"], "ticker": get_tickers_options()[0][entreprise]}
             )
 
             if metrics_response.status_code == 200:

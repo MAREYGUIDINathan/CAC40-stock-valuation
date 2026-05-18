@@ -70,24 +70,25 @@ def get_ticker(
     }
 
 
-def _get_unique_tickers() -> list:
-    """Fetch all unique tickers from the database."""
+def _get_unique_tickers() -> list[dict]:
+    """Fetch all unique tickers and their names from the database."""
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                SELECT DISTINCT "Ticker"
-                FROM raw.market_prices
-                ORDER BY "Ticker" ASC
+                SELECT DISTINCT "Ticker", "Nom"
+                FROM raw.cac40
+                ORDER BY "Nom" ASC
                 """)
         )
-        tickers = [row[0] for row in result.fetchall()]
+        # result.fetchall() produces a list of tuples; use indices, not keys.
+        tickers = [{"ticker": row[0], "name": row[1]} for row in result.fetchall()]
     return tickers
 
 
 @app.get("/tickers")
 def get_tickers():
-    """Return list of unique tickers available in the database."""
+    """Return list of unique tickers and their names available in the database."""
     try:
         tickers = _get_unique_tickers()
         return {"tickers": tickers}

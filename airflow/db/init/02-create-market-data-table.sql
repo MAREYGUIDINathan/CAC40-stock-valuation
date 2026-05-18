@@ -28,6 +28,12 @@ CREATE TABLE IF NOT EXISTS raw.financials (
     PRIMARY KEY ("Date", "Ticker")
 );
 
+CREATE TABLE IF NOT EXISTS raw.cac40 (
+    "Nom" TEXT NOT NULL,
+    "Ticker" TEXT NOT NULL,
+    PRIMARY KEY ("Ticker")
+);
+
 CREATE TABLE IF NOT EXISTS mart.pe_ps_ratios (
     "Date" DATE NOT NULL,
     "Ticker" TEXT NOT NULL,
@@ -37,3 +43,4 @@ CREATE TABLE IF NOT EXISTS mart.pe_ps_ratios (
     "eps" DOUBLE PRECISION,
     PRIMARY KEY ("Date", "Ticker")
 );
+

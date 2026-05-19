@@ -30,7 +30,7 @@ def create_pe_ps_ratios() -> None:
                     LEFT JOIN eps
                     ON 
                         mp."Ticker" = eps."Ticker" AND
-                        extract(year from mp."Date") = extract(year from eps."Date")
+                        extract(year from mp."Date") = extract(year from eps."Date") + 1
                     WHERE eps."eps" <> 'NaN' 
                     """,
                     engine)

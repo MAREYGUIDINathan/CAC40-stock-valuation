@@ -74,13 +74,11 @@ def _get_unique_tickers() -> list[dict]:
     """Fetch all unique tickers and their names from the database."""
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
-        result = connection.execute(
-            text("""
+        result = connection.execute(text("""
                 SELECT DISTINCT "Ticker", "Nom"
                 FROM raw.cac40
                 ORDER BY "Nom" ASC
-                """)
-        )
+                """))
         # result.fetchall() produces a list of tuples; use indices, not keys.
         tickers = [{"ticker": row[0], "name": row[1]} for row in result.fetchall()]
     return tickers
@@ -93,10 +91,7 @@ def get_tickers():
         tickers = _get_unique_tickers()
         return {"tickers": tickers}
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error fetching tickers: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error fetching tickers: {str(e)}")
 
 
 @app.get("/metrics")
@@ -118,12 +113,14 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
     with engine.begin() as connection:
         result = connection.execute(
             text("""
-                SELECT "Close", "Volume"
-                FROM raw.market_prices
-                WHERE "Ticker" = :ticker
-                  AND "Date" BETWEEN :start_date AND :end_date
-                ORDER BY "Date" ASC
+                SELECT mp."Close", mp."Volume", c."Nom" as Ticker
+                FROM raw.market_prices AS mp
+                LEFT JOIN raw.cac40 AS c ON mp."Ticker" = c."Ticker"
+                WHERE mp."Ticker" = :ticker
+                  AND mp."Date" BETWEEN :start_date AND :end_date
+                ORDER BY mp."Date" ASC
                 """),
+           
             {"ticker": ticker, "start_date": start_date, "end_date": today},
         )
         records = [dict(row) for row in result.mappings()]
@@ -131,7 +128,7 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
     if not records:
         raise HTTPException(
             status_code=404,
-            detail=f"No data found for ticker '{ticker}' in the given period"
+            detail=f"No data found for ticker '{ticker}' in the given period",
         )
 
     current_price = records[-1]["Close"]
@@ -142,7 +139,7 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
     return {
         "current_price": float(current_price),
         "percentage_change": float(percentage_change),
-        "average_volume": float(average_volume)
+        "average_volume": float(average_volume),
     }
 
 

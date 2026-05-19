@@ -46,11 +46,12 @@ def get_ticker(
         return {"tickers": [], "period": period, "data": []}
 
     query = text("""
-        SELECT "Date", "Open", "High", "Low", "Close", "Volume", "Ticker"
-        FROM raw.market_prices
-        WHERE "Ticker" IN :tickers
-          AND "Date" BETWEEN :start_date AND :end_date
-        ORDER BY "Ticker" ASC, "Date" ASC
+        SELECT mp."Date", c."Nom" as "Ticker", mp."Close"
+        FROM raw.market_prices AS mp
+        LEFT JOIN raw.cac40 AS c ON mp."Ticker" = c."Ticker"
+        WHERE mp."Ticker" IN :tickers
+          AND mp."Date" BETWEEN :start_date AND :end_date
+        ORDER BY mp."Ticker" ASC, mp."Date" ASC
         """).bindparams(bindparam("tickers", expanding=True))
 
     engine = create_engine(_postgres_connection_url())

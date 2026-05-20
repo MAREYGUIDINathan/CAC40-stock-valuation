@@ -168,17 +168,19 @@ def get_ratios(
         return {"tickers": [], "period": period, "ratio": ratio, "data": []}
 
     if ratio == "PE":
-        columns = '"Date", "Ticker", "PE", "eps"'
+        columns = '"Date", "Nom" as "Ticker", "PE", "eps"'
     else:
-        columns = '"Date", "Ticker", "PS", "sps"'
+        columns = '"Date", "Nom" as "Ticker", "PS", "sps"'
 
     query = text(f"""
         SELECT {columns}
         FROM mart.pe_ps_ratios
-        WHERE "Ticker" IN :tickers
-          AND "Date" BETWEEN :start_date AND :end_date
-        ORDER BY "Ticker" ASC, "Date" ASC
+        JOIN raw.cac40 ON mart.pe_ps_ratios."Ticker" = raw.cac40."Ticker"
+        WHERE mart.pe_ps_ratios."Ticker" IN :tickers
+          AND mart.pe_ps_ratios."Date" BETWEEN :start_date AND :end_date
+        ORDER BY mart.pe_ps_ratios."Ticker" ASC, mart.pe_ps_ratios."Date" ASC
         """).bindparams(bindparam("tickers", expanding=True))
+   
 
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:

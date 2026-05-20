@@ -75,6 +75,25 @@ _SERIES_CONFIG = {
 }
 
 
+RATIO_HELP = {
+    "P/E Ratio ?": (
+        "**P/E (Prix / Bénéfice)** — Mesure combien le marché paie pour 1 € de bénéfice.\n\n"
+        "**Formule :** \n"
+        "P/E = Prix de l'action ÷ BPA (EPS)"
+    ),
+    "P/S Ratio ?": (
+        "**P/S (Prix / Ventes)** — Compare le prix au chiffre d'affaires par action "
+        "(utile si les bénéfices sont faibles ou négatifs).\n\n"
+        "**Formule :** \n"
+        "P/S = Prix de l'action ÷ CA par action (SPS)"
+    ),
+    "Dividend Yield ?": (
+        "**Dividend Yield** — Rendement du dernier dividende versé (sur 12 mois).\n\n"
+        "**Formule :** \n"
+        "(Dernier dividende ÷ Prix de l'action) × 100"
+    ),
+}
+
 def _series_config(ratio: str | None = None) -> dict:
     return _SERIES_CONFIG[ratio]
 
@@ -270,6 +289,16 @@ with st.sidebar:
         default="P/E Ratio",
     )
 
+    st.session_state["explanation"] = st.pills(
+        "COMPRENDRE",
+        ["P/E Ratio ?", "P/S Ratio ?", "Dividend Yield ?"],
+        selection_mode="single",
+        required=True,
+        default="P/E Ratio ?"
+    )
+    st.container(border=True).markdown(RATIO_HELP[st.session_state["explanation"]])
+
+
 selected_companies = st.session_state.get("ticker_selected") or []
 if isinstance(selected_companies, str):
     selected_companies = [selected_companies]
@@ -312,7 +341,7 @@ else:
                     border=True,
                 )
 
-    with st.container():
+    with st.container(border=True):
         line_chart(data)
 
     ratio_api = RATIO_LABEL_TO_API.get(ratio)
@@ -324,10 +353,10 @@ else:
         )
         st.subheader(f"Évolution du {ratio}")
         with st.container(horizontal=True):
-            with st.container():
+            with st.container(border=True):
                 st.caption("Courbe dans le temps")
                 line_chart(ratios_df, ratio=ratio_api)
-            with st.container():
+            with st.container(border=True):
                 st.caption("Dernière valeur par entreprise")
                 bar_chart(ratios_df, ratio_api)
 st.subheader("Tableau récapitulatif — CAC 40")

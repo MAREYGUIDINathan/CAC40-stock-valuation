@@ -240,36 +240,64 @@ def fetch_summary_df() -> pd.DataFrame:
     )[["Entreprise", "Cours", "P/E", "P/S", "Dividend Yield (%)", "EPS", "SPS", "as_of_date"]]
 
 
+ticker_mapping, company_names = get_tickers_options()
+default_companies = company_names[:3]
+
 with st.sidebar:
     st.header("val.cac40")
 
-    st.session_state["ticker_selected"]  = st.pills("ENTREPRISES", get_tickers_options()[1], selection_mode="multi")
-    
-    st.session_state["period_filter"] = st.pills("PÉRIODE", ["1M", "6M", "CY", "1Y", "5Y"], selection_mode="single", required=True, default="5Y")
+    st.session_state["ticker_selected"] = st.pills(
+        "ENTREPRISES",
+        company_names,
+        selection_mode="multi",
+        default=default_companies,
+        key="entreprises_pills",
+    ) or []
 
-    ratio = st.pills("RATIO", ["P/E Ratio", "P/S Ratio", "Dividend Yield"], selection_mode="single", required=True, default="P/E Ratio")
+    st.session_state["period_filter"] = st.pills(
+        "PÉRIODE",
+        ["1M", "6M", "CY", "1Y", "5Y"],
+        selection_mode="single",
+        required=True,
+        default="5Y",
+    )
 
+    ratio = st.pills(
+        "RATIO",
+        ["P/E Ratio", "P/S Ratio", "Dividend Yield"],
+        selection_mode="single",
+        required=True,
+        default="P/E Ratio",
+    )
+
+selected_companies = st.session_state.get("ticker_selected") or []
+if isinstance(selected_companies, str):
+    selected_companies = [selected_companies]
 
 # Show Title
 st.title("Valorisation des actions du CAC 40", text_alignment="left")
 
 période = {"1M": "1 mois", "6M": "6 mois", "CY": "Cette année", "1Y": "1 an", "5Y": "5 ans"}
 
-st.write(f"{len(st.session_state['ticker_selected'])} entreprise(s) sélectionnée(s)  ·  {ratio}  ·  {période[st.session_state['period_filter']]} ")
+st.write(
+    f"{len(selected_companies)} entreprise(s) sélectionnée(s)  ·  {ratio}  ·  {période[st.session_state['period_filter']]} "
+)
 
-selected_tickers = [get_tickers_options()[0][entreprise] for entreprise in st.session_state.get("ticker_selected")] or []
-if isinstance(selected_tickers, str):
-    selected_tickers = [selected_tickers]
-data = create_df(st.session_state["period_filter"], tuple(selected_tickers))
+if not selected_companies:
+    st.warning("Veuillez sélectionner au moins une entreprise")
+else:
+    selected_tickers = [ticker_mapping[entreprise] for entreprise in selected_companies]
+    data = create_df(st.session_state["period_filter"], tuple(selected_tickers))
 
-st.subheader(f"Évolution du cours")
-# Fetch metrics from API
-if st.session_state["ticker_selected"]:
+    st.subheader("Évolution du cours")
     with st.container(horizontal=True):
-        for entreprise in st.session_state["ticker_selected"]:
+        for entreprise in selected_companies:
             metrics_response = httpx.get(
                 f"{API}/metrics",
-                params={"period": st.session_state["period_filter"], "ticker": get_tickers_options()[0][entreprise]}
+                params={
+                    "period": st.session_state["period_filter"],
+                    "ticker": ticker_mapping[entreprise],
+                },
             )
 
             if metrics_response.status_code == 200:
@@ -277,28 +305,31 @@ if st.session_state["ticker_selected"]:
                 current_price = metrics["current_price"]
                 percentage_change = metrics["percentage_change"]
 
-                st.metric(f"{entreprise} cours", f"{current_price:.2f}€", f"{percentage_change:+.2f}%", border=True)
+                st.metric(
+                    f"{entreprise} cours",
+                    f"{current_price:.2f}€",
+                    f"{percentage_change:+.2f}%",
+                    border=True,
+                )
 
-# Show line chart
-with st.container():
-    line_chart(data)
+    with st.container():
+        line_chart(data)
 
-# Show ratio charts
-ratio_api = RATIO_LABEL_TO_API.get(ratio)
-if ratio_api and selected_tickers:
-    ratios_df = create_ratios_df(
-        st.session_state["period_filter"],
-        tuple(selected_tickers),
-        ratio_api,
-    )
-    st.subheader(f"Évolution du {ratio}")
-    with st.container(horizontal=True):
-        with st.container():
-            st.caption("Courbe dans le temps")
-            line_chart(ratios_df, ratio=ratio_api)
-        with st.container():
-            st.caption("Dernière valeur par entreprise")
-            bar_chart(ratios_df, ratio_api)
+    ratio_api = RATIO_LABEL_TO_API.get(ratio)
+    if ratio_api:
+        ratios_df = create_ratios_df(
+            st.session_state["period_filter"],
+            tuple(selected_tickers),
+            ratio_api,
+        )
+        st.subheader(f"Évolution du {ratio}")
+        with st.container(horizontal=True):
+            with st.container():
+                st.caption("Courbe dans le temps")
+                line_chart(ratios_df, ratio=ratio_api)
+            with st.container():
+                st.caption("Dernière valeur par entreprise")
+                bar_chart(ratios_df, ratio_api)
 st.subheader("Tableau récapitulatif — CAC 40")
 summary_df = fetch_summary_df()
 if summary_df.empty:

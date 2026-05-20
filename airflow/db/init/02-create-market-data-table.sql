@@ -52,3 +52,16 @@ CREATE TABLE IF NOT EXISTS mart.pe_ps_ratios (
     PRIMARY KEY ("Date", "Ticker")
 );
 
+CREATE TABLE IF NOT EXISTS mart.valuation_summary (
+    "Ticker" TEXT NOT NULL,
+    "Nom" TEXT NOT NULL,
+    "Cours" DOUBLE PRECISION,
+    "PE" DOUBLE PRECISION,
+    "PS" DOUBLE PRECISION,
+    "EPS" DOUBLE PRECISION,
+    "SPS" DOUBLE PRECISION,
+    "dividend_yield" DOUBLE PRECISION,
+    "as_of_date" DATE,
+    PRIMARY KEY ("Ticker")
+);
+

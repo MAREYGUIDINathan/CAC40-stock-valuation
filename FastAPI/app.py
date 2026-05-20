@@ -147,10 +147,10 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
 @app.get("/ratios")
 def get_ratios(
     period: str,
-    ratio: Literal["PE", "PS"],
+    ratio: Literal["PE", "PS", "DY"],
     tickers: Annotated[list[str], Query()] = ["ENGI.PA"],
 ):
-    """Return PE/EPS or PS/SPS series from mart.pe_ps_ratios."""
+    """Return PE/EPS, PS/SPS, or dividend yield series from mart.pe_ps_ratios."""
     today = datetime.today().date()
 
     if period == "CY":
@@ -169,8 +169,10 @@ def get_ratios(
 
     if ratio == "PE":
         columns = '"Date", "Nom" as "Ticker", "PE", "eps"'
-    else:
+    elif ratio == "PS":
         columns = '"Date", "Nom" as "Ticker", "PS", "sps"'
+    else:
+        columns = '"Date", "Nom" as "Ticker", "dividend_yield"'
 
     query = text(f"""
         SELECT {columns}
@@ -193,8 +195,10 @@ def get_ratios(
             record["Date"] = record["Date"].isoformat()
             if ratio == "PE":
                 record["EPS"] = record.pop("eps")
-            else:
+            elif ratio == "PS":
                 record["SPS"] = record.pop("sps")
+            else:
+                record["DividendYield"] = record.pop("dividend_yield")
 
     return {
         "tickers": tickers,

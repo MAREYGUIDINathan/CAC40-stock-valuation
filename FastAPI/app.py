@@ -1,3 +1,4 @@
+import math
 import os
 from datetime import datetime, timedelta
 from typing import Annotated, Literal
@@ -13,6 +14,13 @@ PERIODS = {
     "1Y": timedelta(days=365),
     "5Y": timedelta(days=365 * 5),
 }
+
+
+def _sanitize_record(record: dict) -> dict:
+    for key, value in record.items():
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            record[key] = None
+    return record
 
 
 def _postgres_connection_url() -> str:
@@ -206,3 +214,35 @@ def get_ratios(
         "ratio": ratio,
         "data": records,
     }
+
+
+@app.get("/summary")
+def get_summary():
+    """Return latest valuation metrics for all CAC 40 companies."""
+    engine = create_engine(_postgres_connection_url())
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    "Ticker",
+                    "Nom",
+                    "Cours",
+                    "PE",
+                    "PS",
+                    "EPS",
+                    "SPS",
+                    "dividend_yield",
+                    "as_of_date"
+                FROM mart.valuation_summary
+                ORDER BY "Nom" ASC
+                """)
+        )
+        records = [dict(row) for row in result.mappings()]
+
+    for record in records:
+        if record.get("as_of_date"):
+            record["as_of_date"] = record["as_of_date"].isoformat()
+        record["DividendYield"] = record.pop("dividend_yield")
+        _sanitize_record(record)
+
+    return {"data": records}

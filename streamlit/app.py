@@ -221,40 +221,23 @@ def bar_chart(data_filtered: pd.DataFrame, ratio: str) -> None:
     st.altair_chart(chart, width="stretch")
 
 
-def _latest_per_ticker(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
-    if df.empty:
-        return pd.DataFrame(columns=["Ticker", *columns])
-    return (
-        df.sort_values("Date")
-        .groupby("Ticker", as_index=False)
-        .last()[["Ticker", *columns]]
-    )
-
-
-def build_summary_table(
-    period: str,
-    tickers: tuple[str, ...],
-    prices_df: pd.DataFrame,
-) -> pd.DataFrame:
-    summary = pd.DataFrame({"Entreprise": list(tickers)})
-
-    cours = _latest_per_ticker(prices_df, ["Close"]).rename(
-        columns={"Ticker": "Entreprise", "Close": "Cours"}
-    )
-    pe = _latest_per_ticker(create_ratios_df(period, tickers, "PE"), ["PE", "EPS"]).rename(
-        columns={"Ticker": "Entreprise", "PE": "P/E", "EPS": "EPS"}
-    )
-    ps = _latest_per_ticker(create_ratios_df(period, tickers, "PS"), ["PS", "SPS"]).rename(
-        columns={"Ticker": "Entreprise", "PS": "P/S", "SPS": "SPS"}
-    )
-    dy = _latest_per_ticker(create_ratios_df(period, tickers, "DY"), ["DividendYield"]).rename(
-        columns={"Ticker": "Entreprise", "DividendYield": "Dividend Yield (%)"}
-    )
-
-    for part in (cours, pe, ps, dy):
-        summary = summary.merge(part, on="Entreprise", how="left")
-
-    return summary[["Entreprise", "Cours", "P/E", "P/S", "Dividend Yield (%)", "EPS", "SPS"]]
+@st.cache_data(ttl=60)
+def fetch_summary_df() -> pd.DataFrame:
+    r = httpx.get(f"{API}/summary", timeout=30.0)
+    if r.status_code != 200:
+        return pd.DataFrame()
+    data = r.json().get("data", [])
+    if not data:
+        return pd.DataFrame()
+    df = pd.DataFrame(data)
+    return df.rename(
+        columns={
+            "Nom": "Entreprise",
+            "PE": "P/E",
+            "PS": "P/S",
+            "DividendYield": "Dividend Yield (%)",
+        }
+    )[["Entreprise", "Cours", "P/E", "P/S", "Dividend Yield (%)", "EPS", "SPS", "as_of_date"]]
 
 
 with st.sidebar:
@@ -316,26 +299,27 @@ if ratio_api and selected_tickers:
         with st.container():
             st.caption("Dernière valeur par entreprise")
             bar_chart(ratios_df, ratio_api)
-if selected_tickers:
-    st.subheader("Tableau récapitulatif")
-    summary_df = build_summary_table(
-        st.session_state["period_filter"],
-        tuple(selected_tickers),
-        data,
-    )
+st.subheader("Tableau récapitulatif — CAC 40")
+summary_df = fetch_summary_df()
+if summary_df.empty:
+    st.info("Aucune donnée récapitulative disponible. Lancez le DAG Airflow (create_valuation_summary).")
+else:
     st.dataframe(
-        summary_df,
+        summary_df.drop(columns=["as_of_date"], errors="ignore"),
         column_config={
             "Entreprise": st.column_config.TextColumn("Entreprise"),
             "Cours": st.column_config.NumberColumn("Cours", format="%.2f €"),
             "P/E": st.column_config.NumberColumn("P/E", format="%.2f"),
             "P/S": st.column_config.NumberColumn("P/S", format="%.2f"),
+            "Dividend Yield (%)": st.column_config.NumberColumn("Dividend Yield (%)", format="%.2f"),
             "EPS": st.column_config.NumberColumn("EPS", format="%.2f"),
             "SPS": st.column_config.NumberColumn("SPS", format="%.2f"),
         },
         hide_index=True,
         width="stretch",
     )
+    if "as_of_date" in summary_df.columns and summary_df["as_of_date"].notna().any():
+        st.caption(f"Données au {summary_df['as_of_date'].max()}")
 
 # -------------------------------------
 #  Footer

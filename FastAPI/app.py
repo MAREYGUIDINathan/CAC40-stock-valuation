@@ -1,6 +1,6 @@
 import math
 import os
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query
@@ -14,6 +14,8 @@ PERIODS = {
     "1Y": timedelta(days=365),
     "5Y": timedelta(days=365 * 5),
 }
+
+WEEKLY_PERIODS = frozenset({"6M", "CY", "1Y", "5Y"})
 
 
 def _sanitize_record(record: dict) -> dict:
@@ -32,41 +34,70 @@ def _postgres_connection_url() -> str:
     return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}"
 
 
+def _period_bounds(period: str) -> tuple[date, date]:
+    today = datetime.today().date()
+    if period == "CY":
+        return today.replace(month=1, day=1), today
+    if period not in PERIODS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid period '{period}'. Allowed values: {', '.join(['CY', *PERIODS.keys()])}",
+        )
+    return today - PERIODS[period], today
+
+
+def _weekly_resolution(period: str) -> bool:
+    return period in WEEKLY_PERIODS
+
+
 @app.get("/")
 def get_ticker(
     period: str,
     ticker: Annotated[list[str], Query()] = ["ENGI.PA"],
 ):
-    today = datetime.today().date()
-
-    if period == "CY":
-        start_date = today.replace(month=1, day=1)
-    else:
-        if period not in PERIODS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid period '{period}'. Allowed values: {', '.join(['CY', *PERIODS.keys()])}",
-            )
-        start_date = today - PERIODS[period]
+    start_date, end_date = _period_bounds(period)
+    weekly = _weekly_resolution(period)
 
     tickers = list(dict.fromkeys(ticker))
     if not tickers:
-        return {"tickers": [], "period": period, "data": []}
+        return {"tickers": [], "period": period, "resolution": "weekly" if weekly else "daily", "data": []}
 
-    query = text("""
-        SELECT mp."Date", c."Nom" as "Ticker", mp."Close"
-        FROM raw.market_prices AS mp
-        LEFT JOIN raw.cac40 AS c ON mp."Ticker" = c."Ticker"
-        WHERE mp."Ticker" IN :tickers
-          AND mp."Date" BETWEEN :start_date AND :end_date
-        ORDER BY mp."Ticker" ASC, mp."Date" ASC
-        """).bindparams(bindparam("tickers", expanding=True))
+    if weekly:
+        query = text("""
+            WITH ranked AS (
+                SELECT
+                    mp."Date",
+                    c."Nom" AS "Ticker",
+                    mp."Close",
+                    ROW_NUMBER() OVER (
+                        PARTITION BY mp."Ticker", date_trunc('week', mp."Date"::timestamp)
+                        ORDER BY mp."Date" DESC
+                    ) AS rn
+                FROM raw.market_prices AS mp
+                LEFT JOIN raw.cac40 AS c ON mp."Ticker" = c."Ticker"
+                WHERE mp."Ticker" IN :tickers
+                  AND mp."Date" BETWEEN :start_date AND :end_date
+            )
+            SELECT "Date", "Ticker", "Close"
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY "Ticker" ASC, "Date" ASC
+            """).bindparams(bindparam("tickers", expanding=True))
+    else:
+        query = text("""
+            SELECT mp."Date", c."Nom" AS "Ticker", mp."Close"
+            FROM raw.market_prices AS mp
+            LEFT JOIN raw.cac40 AS c ON mp."Ticker" = c."Ticker"
+            WHERE mp."Ticker" IN :tickers
+              AND mp."Date" BETWEEN :start_date AND :end_date
+            ORDER BY mp."Ticker" ASC, mp."Date" ASC
+            """).bindparams(bindparam("tickers", expanding=True))
 
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
         result = connection.execute(
             query,
-            {"tickers": tickers, "start_date": start_date, "end_date": today},
+            {"tickers": tickers, "start_date": start_date, "end_date": end_date},
         )
         records = [dict(row) for row in result.mappings()]
         for record in records:
@@ -75,6 +106,7 @@ def get_ticker(
     return {
         "tickers": tickers,
         "period": period,
+        "resolution": "weekly" if weekly else "daily",
         "data": records,
     }
 
@@ -106,17 +138,7 @@ def get_tickers():
 @app.get("/metrics")
 def get_metrics(period: str, ticker: str = "ENGI.PA"):
     """Calculate and return price metrics for a given period and ticker."""
-    today = datetime.today().date()
-
-    if period == "CY":
-        start_date = today.replace(month=1, day=1)
-    else:
-        if period not in PERIODS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid period '{period}'. Allowed values: {', '.join(['CY', *PERIODS.keys()])}",
-            )
-        start_date = today - PERIODS[period]
+    start_date, end_date = _period_bounds(period)
 
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
@@ -130,7 +152,7 @@ def get_metrics(period: str, ticker: str = "ENGI.PA"):
                 ORDER BY mp."Date" ASC
                 """),
            
-            {"ticker": ticker, "start_date": start_date, "end_date": today},
+            {"ticker": ticker, "start_date": start_date, "end_date": end_date},
         )
         records = [dict(row) for row in result.mappings()]
 
@@ -159,44 +181,63 @@ def get_ratios(
     tickers: Annotated[list[str], Query()] = ["ENGI.PA"],
 ):
     """Return PE/EPS, PS/SPS, or dividend yield series from mart.pe_ps_ratios."""
-    today = datetime.today().date()
-
-    if period == "CY":
-        start_date = today.replace(month=1, day=1)
-    else:
-        if period not in PERIODS:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid period '{period}'. Allowed values: {', '.join(['CY', *PERIODS.keys()])}",
-            )
-        start_date = today - PERIODS[period]
+    start_date, end_date = _period_bounds(period)
+    weekly = _weekly_resolution(period)
 
     tickers = list(dict.fromkeys(tickers))
     if not tickers:
-        return {"tickers": [], "period": period, "ratio": ratio, "data": []}
+        return {
+            "tickers": [],
+            "period": period,
+            "ratio": ratio,
+            "resolution": "weekly" if weekly else "daily",
+            "data": [],
+        }
 
     if ratio == "PE":
-        columns = '"Date", "Nom" as "Ticker", "PE", "eps"'
+        select_cols = 'r."Date", c."Nom" AS "Ticker", r."PE", r."eps"'
+        weekly_select = '"Date", "Ticker", "PE", "eps"'
     elif ratio == "PS":
-        columns = '"Date", "Nom" as "Ticker", "PS", "sps"'
+        select_cols = 'r."Date", c."Nom" AS "Ticker", r."PS", r."sps"'
+        weekly_select = '"Date", "Ticker", "PS", "sps"'
     else:
-        columns = '"Date", "Nom" as "Ticker", "dividend_yield"'
+        select_cols = 'r."Date", c."Nom" AS "Ticker", r."dividend_yield"'
+        weekly_select = '"Date", "Ticker", "dividend_yield"'
 
-    query = text(f"""
-        SELECT {columns}
-        FROM mart.pe_ps_ratios
-        JOIN raw.cac40 ON mart.pe_ps_ratios."Ticker" = raw.cac40."Ticker"
-        WHERE mart.pe_ps_ratios."Ticker" IN :tickers
-          AND mart.pe_ps_ratios."Date" BETWEEN :start_date AND :end_date
-        ORDER BY mart.pe_ps_ratios."Ticker" ASC, mart.pe_ps_ratios."Date" ASC
-        """).bindparams(bindparam("tickers", expanding=True))
-   
+    if weekly:
+        query = text(f"""
+            WITH ranked AS (
+                SELECT
+                    {select_cols},
+                    ROW_NUMBER() OVER (
+                        PARTITION BY c."Nom", date_trunc('week', r."Date"::timestamp)
+                        ORDER BY r."Date" DESC
+                    ) AS rn
+                FROM mart.pe_ps_ratios AS r
+                JOIN raw.cac40 AS c ON r."Ticker" = c."Ticker"
+                WHERE r."Ticker" IN :tickers
+                  AND r."Date" BETWEEN :start_date AND :end_date
+            )
+            SELECT {weekly_select}
+            FROM ranked
+            WHERE rn = 1
+            ORDER BY "Ticker" ASC, "Date" ASC
+            """).bindparams(bindparam("tickers", expanding=True))
+    else:
+        query = text(f"""
+            SELECT {select_cols}
+            FROM mart.pe_ps_ratios AS r
+            JOIN raw.cac40 AS c ON r."Ticker" = c."Ticker"
+            WHERE r."Ticker" IN :tickers
+              AND r."Date" BETWEEN :start_date AND :end_date
+            ORDER BY c."Nom" ASC, r."Date" ASC
+            """).bindparams(bindparam("tickers", expanding=True))
 
     engine = create_engine(_postgres_connection_url())
     with engine.begin() as connection:
         result = connection.execute(
             query,
-            {"tickers": tickers, "start_date": start_date, "end_date": today},
+            {"tickers": tickers, "start_date": start_date, "end_date": end_date},
         )
         records = [dict(row) for row in result.mappings()]
         for record in records:
@@ -207,11 +248,13 @@ def get_ratios(
                 record["SPS"] = record.pop("sps")
             else:
                 record["DividendYield"] = record.pop("dividend_yield")
+            _sanitize_record(record)
 
     return {
         "tickers": tickers,
         "period": period,
         "ratio": ratio,
+        "resolution": "weekly" if weekly else "daily",
         "data": records,
     }
 

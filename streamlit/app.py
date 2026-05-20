@@ -36,6 +36,7 @@ def get_tickers_options() -> list:
 RATIO_LABEL_TO_API = {
     "P/E Ratio": "PE",
     "P/S Ratio": "PS",
+    "Dividend Yield": "DY",
 }
 
 _SERIES_CONFIG = {
@@ -62,6 +63,14 @@ _SERIES_CONFIG = {
         "secondary_col": "SPS",
         "secondary_title": "CA par action (SPS)",
         "empty_message": "Aucune donnée de ratio disponible pour la sélection.",
+    },
+    "DY": {
+        "y_col": "DividendYield",
+        "y_title": "Dividend Yield (%)",
+        "x_title": "Date",
+        "secondary_col": None,
+        "secondary_title": None,
+        "empty_message": "Aucune donnée de dividend yield disponible pour la sélection.",
     },
 }
 
@@ -238,11 +247,14 @@ def build_summary_table(
     ps = _latest_per_ticker(create_ratios_df(period, tickers, "PS"), ["PS", "SPS"]).rename(
         columns={"Ticker": "Entreprise", "PS": "P/S", "SPS": "SPS"}
     )
+    dy = _latest_per_ticker(create_ratios_df(period, tickers, "DY"), ["DividendYield"]).rename(
+        columns={"Ticker": "Entreprise", "DividendYield": "Dividend Yield (%)"}
+    )
 
-    for part in (cours, pe, ps):
+    for part in (cours, pe, ps, dy):
         summary = summary.merge(part, on="Entreprise", how="left")
 
-    return summary[["Entreprise", "Cours", "P/E", "P/S", "EPS", "SPS"]]
+    return summary[["Entreprise", "Cours", "P/E", "P/S", "Dividend Yield (%)", "EPS", "SPS"]]
 
 
 with st.sidebar:
@@ -304,10 +316,6 @@ if ratio_api and selected_tickers:
         with st.container():
             st.caption("Dernière valeur par entreprise")
             bar_chart(ratios_df, ratio_api)
-elif ratio and ratio not in RATIO_LABEL_TO_API:
-    st.info("Le Dividend Yield n'est pas encore disponible via l'API.")
-
-
 if selected_tickers:
     st.subheader("Tableau récapitulatif")
     summary_df = build_summary_table(

@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS raw.cac40 (
     PRIMARY KEY ("Ticker")
 );
 
+CREATE TABLE IF NOT EXISTS raw.dividends (
+    "Date" DATE NOT NULL,
+    "Ticker" TEXT NOT NULL,
+    "Amount" DOUBLE PRECISION NOT NULL,
+    PRIMARY KEY ("Date", "Ticker")
+);
+
 CREATE TABLE IF NOT EXISTS mart.pe_ps_ratios (
     "Date" DATE NOT NULL,
     "Ticker" TEXT NOT NULL,
@@ -41,6 +48,7 @@ CREATE TABLE IF NOT EXISTS mart.pe_ps_ratios (
     "PS" DOUBLE PRECISION,
     "sps" DOUBLE PRECISION,
     "eps" DOUBLE PRECISION,
+    "dividend_yield" DOUBLE PRECISION,
     PRIMARY KEY ("Date", "Ticker")
 );
 

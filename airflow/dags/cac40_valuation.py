@@ -12,6 +12,7 @@ from pipelines.extract.cac40 import load_cac40
 from pipelines.extract.stock_prices import load_prices
 from pipelines.extract.balance_sheet import load_balance_sheet
 from pipelines.extract.financials import load_financials
+from pipelines.extract.dividends import load_dividends
 from pipelines.mart.PE_PS_ratios import create_pe_ps_ratios
 
 
@@ -39,9 +40,13 @@ with DAG(
         task_id="load_financials",
         python_callable=load_financials,
     )
+    t_dividends = PythonOperator(
+        task_id="load_dividends",
+        python_callable=load_dividends,
+    )
     t_pe_ps = PythonOperator(
         task_id="create_pe_ps_ratios",
         python_callable=create_pe_ps_ratios,
     )
 
-    t_cac40 >> [t_prices, t_balance_sheet, t_financials] >> t_pe_ps
+    t_cac40 >> [t_prices, t_balance_sheet, t_financials, t_dividends] >> t_pe_ps

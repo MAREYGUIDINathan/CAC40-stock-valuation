@@ -42,27 +42,27 @@ RATIO_LABEL_TO_API = {
 _SERIES_CONFIG = {
     None: {
         "y_col": "Close",
-        "y_title": "Cours de clôture",
+        "y_title": "Market Price",
         "x_title": "Day",
         "secondary_col": None,
         "secondary_title": None,
-        "empty_message": "Aucune donnée disponible pour la sélection.",
+        "empty_message": "No data available for the selection.",
     },
     "PE": {
         "y_col": "PE",
         "y_title": "P/E Ratio",
         "x_title": "Date",
         "secondary_col": "EPS",
-        "secondary_title": "BPA (EPS)",
-        "empty_message": "Aucune donnée de ratio disponible pour la sélection.",
+        "secondary_title": "EPS",
+        "empty_message": "No data available for the selection.",
     },
     "PS": {
         "y_col": "PS",
         "y_title": "P/S Ratio",
         "x_title": "Date",
-        "secondary_col": "SPS",
-        "secondary_title": "CA par action (SPS)",
-        "empty_message": "Aucune donnée de ratio disponible pour la sélection.",
+        "secondary_col": "PS",
+        "secondary_title": "PS",
+        "empty_message": "No data available for the selection.",
     },
     "DY": {
         "y_col": "DividendYield",
@@ -70,27 +70,26 @@ _SERIES_CONFIG = {
         "x_title": "Date",
         "secondary_col": None,
         "secondary_title": None,
-        "empty_message": "Aucune donnée de dividend yield disponible pour la sélection.",
+        "empty_message": "No data available for the selection.",
     },
 }
 
 
 RATIO_HELP = {
     "P/E Ratio ?": (
-        "**P/E (Prix / Bénéfice)** — Mesure combien le marché paie pour 1 € de bénéfice.\n\n"
-        "**Formule :** \n"
-        "P/E = Prix de l'action ÷ BPA (EPS)"
+        "**P/E (Price / Earning)** — How much earning is made by stock compared to the price of the stock.\n\n"
+        "**Formula :** \n\n"
+        "P/E = Market price ÷ Earning per share"
     ),
     "P/S Ratio ?": (
-        "**P/S (Prix / Ventes)** — Compare le prix au chiffre d'affaires par action "
-        "(utile si les bénéfices sont faibles ou négatifs).\n\n"
-        "**Formule :** \n"
-        "P/S = Prix de l'action ÷ CA par action (SPS)"
+        "**P/S (Price / Sales)** — How much sales is made by stock compared to the price of the stock \n\n"
+        "**Formula :** \n\n"
+        "P/S = Market price ÷ Sales per share"
     ),
     "Dividend Yield ?": (
-        "**Dividend Yield** — Rendement du dernier dividende versé (sur 12 mois).\n\n"
-        "**Formule :** \n"
-        "(Dernier dividende ÷ Prix de l'action) × 100"
+        "**Dividend Yield** — How much dividend you get by having stock\n\n"
+        "**Formula :** \n\n"
+        "(n-1 Dividends ÷ Price) × 100"
     ),
 }
 
@@ -136,7 +135,7 @@ def line_chart(data_filtered: pd.DataFrame, ratio: str | None = None) -> None:
     )
 
     tooltip = [
-        alt.Tooltip("Ticker:N", title="Entreprise"),
+        alt.Tooltip("Ticker:N", title="Company"),
         alt.Tooltip("Date:O", title="Date"),
         alt.Tooltip(f"{y_col}:Q", title=cfg["y_title"], format=".2f"),
     ]
@@ -159,7 +158,7 @@ def line_chart(data_filtered: pd.DataFrame, ratio: str | None = None) -> None:
                 title=cfg["y_title"],
                 scale=alt.Scale(domain=[y_min, y_max]),
             ),
-            color=alt.Color("Ticker:N", title="Entreprise"),
+            color=alt.Color("Ticker:N", title="Company"),
         )
     )
 
@@ -213,8 +212,8 @@ def bar_chart(data_filtered: pd.DataFrame, ratio: str) -> None:
     )
 
     tooltip = [
-        alt.Tooltip("Ticker:N", title="Entreprise"),
-        alt.Tooltip("Date:O", title="Dernière date"),
+        alt.Tooltip("Ticker:N", title="Company"),
+        alt.Tooltip("Date:O", title="Last date"),
         alt.Tooltip(f"{y_col}:Q", title=cfg["y_title"], format=".2f"),
     ]
     if cfg["secondary_col"]:
@@ -230,9 +229,9 @@ def bar_chart(data_filtered: pd.DataFrame, ratio: str) -> None:
         alt.Chart(latest)
         .mark_bar()
         .encode(
-            x=alt.X("Ticker:N", title="Entreprise", sort="-y"),
+            x=alt.X("Ticker:N", title="Company", sort="-y"),
             y=alt.Y(f"{y_col}:Q", title=cfg["y_title"]),
-            color=alt.Color("Ticker:N", title="Entreprise", legend=None),
+            color=alt.Color("Ticker:N", title="Company", legend=None),
             tooltip=tooltip,
         )
     )
@@ -251,12 +250,13 @@ def fetch_summary_df() -> pd.DataFrame:
     df = pd.DataFrame(data)
     return df.rename(
         columns={
-            "Nom": "Entreprise",
+            "Nom": "Company",
+            "Cours": "Market price",
             "PE": "P/E",
             "PS": "P/S",
             "DividendYield": "Dividend Yield (%)",
         }
-    )[["Entreprise", "Cours", "P/E", "P/S", "Dividend Yield (%)", "EPS", "SPS", "as_of_date"]]
+    )[["Company", "Market price", "P/E", "P/S", "Dividend Yield (%)", "EPS", "SPS", "as_of_date"]]
 
 
 ticker_mapping, company_names = get_tickers_options()
@@ -266,7 +266,7 @@ with st.sidebar:
     st.header("val.cac40")
 
     st.session_state["ticker_selected"] = st.pills(
-        "ENTREPRISES",
+        "COMPANY",
         company_names,
         selection_mode="multi",
         default=default_companies,
@@ -274,7 +274,7 @@ with st.sidebar:
     ) or []
 
     st.session_state["period_filter"] = st.pills(
-        "PÉRIODE",
+        "PERIOD",
         ["1M", "6M", "CY", "1Y", "5Y"],
         selection_mode="single",
         required=True,
@@ -289,8 +289,15 @@ with st.sidebar:
         default="P/E Ratio",
     )
 
+    st.markdown(
+    """
+<hr style="margin-top:50px;">
+
+""",
+    unsafe_allow_html=True,
+)
     st.session_state["explanation"] = st.pills(
-        "COMPRENDRE",
+        "WHAT IS",
         ["P/E Ratio ?", "P/S Ratio ?", "Dividend Yield ?"],
         selection_mode="single",
         required=True,
@@ -304,21 +311,26 @@ if isinstance(selected_companies, str):
     selected_companies = [selected_companies]
 
 # Show Title
-st.title("Valorisation des actions du CAC 40", text_alignment="left")
+st.title("Valuation of CAC 40 stocks", text_alignment="left")
 
-période = {"1M": "1 mois", "6M": "6 mois", "CY": "Cette année", "1Y": "1 an", "5Y": "5 ans"}
+période = {"1M": "1 Month", "6M": "6 Month", "CY": "Current Year", "1Y": "1 Year", "5Y": "5 Year"}
 
-st.write(
-    f"{len(selected_companies)} entreprise(s) sélectionnée(s)  ·  {ratio}  ·  {période[st.session_state['period_filter']]} "
-)
+if len(selected_companies) > 1:
+    st.write(
+    f"{len(selected_companies)} companies selected  ·  {ratio}  ·  {période[st.session_state['period_filter']]} "
+    )
+else:
+    st.write(
+    f"{len(selected_companies)} company selected  ·  {ratio}  ·  {période[st.session_state['period_filter']]} "
+    ) 
 
 if not selected_companies:
-    st.warning("Veuillez sélectionner au moins une entreprise")
+    st.warning("Select at least one company")
 else:
     selected_tickers = [ticker_mapping[entreprise] for entreprise in selected_companies]
     data = create_df(st.session_state["period_filter"], tuple(selected_tickers))
 
-    st.subheader("Évolution du cours")
+    st.subheader("Market price evolution")
     with st.container(horizontal=True):
         for entreprise in selected_companies:
             metrics_response = httpx.get(
@@ -335,7 +347,7 @@ else:
                 percentage_change = metrics["percentage_change"]
 
                 st.metric(
-                    f"{entreprise} cours",
+                    f"{entreprise} market price",
                     f"{current_price:.2f}€",
                     f"{percentage_change:+.2f}%",
                     border=True,
@@ -351,15 +363,15 @@ else:
             tuple(selected_tickers),
             ratio_api,
         )
-        st.subheader(f"Évolution du {ratio}")
+        st.subheader(f"{ratio} evolution")
         with st.container(horizontal=True):
             with st.container(border=True):
-                st.caption("Courbe dans le temps")
+                st.caption("ratio evolution")
                 line_chart(ratios_df, ratio=ratio_api)
             with st.container(border=True):
-                st.caption("Dernière valeur par entreprise")
+                st.caption("Last value by company")
                 bar_chart(ratios_df, ratio_api)
-st.subheader("Tableau récapitulatif — CAC 40")
+st.subheader("Summary table — CAC 40")
 summary_df = fetch_summary_df()
 if summary_df.empty:
     st.info("Aucune donnée récapitulative disponible. Lancez le DAG Airflow (create_valuation_summary).")
@@ -367,8 +379,8 @@ else:
     st.dataframe(
         summary_df.drop(columns=["as_of_date"], errors="ignore"),
         column_config={
-            "Entreprise": st.column_config.TextColumn("Entreprise"),
-            "Cours": st.column_config.NumberColumn("Cours", format="%.2f €"),
+            "Company": st.column_config.TextColumn("Company"),
+            "Market price": st.column_config.NumberColumn("Market price", format="%.2f €"),
             "P/E": st.column_config.NumberColumn("P/E", format="%.2f"),
             "P/S": st.column_config.NumberColumn("P/S", format="%.2f"),
             "Dividend Yield (%)": st.column_config.NumberColumn("Dividend Yield (%)", format="%.2f"),
@@ -379,7 +391,7 @@ else:
         width="stretch",
     )
     if "as_of_date" in summary_df.columns and summary_df["as_of_date"].notna().any():
-        st.caption(f"Données au {summary_df['as_of_date'].max()}")
+        st.caption(f"Data of {summary_df['as_of_date'].max()}")
 
 # -------------------------------------
 #  Footer
@@ -388,11 +400,9 @@ else:
 st.markdown(
     """
 <hr style="margin-top:50px;">
-<div style="margin-top:30px;">
-pour en savoir plus sur la bourse: <a href=https://www.economie.gouv.fr/facileco/dossiers-economiques/la-bourse> economie.gouv.fr </a> 
-</div>
+
 <div style="text-align: left; font-size: 0.9em; margin-top:30px">
-© 2026 MAREY--GUIDI Nathan — Stock Analysis Introduction <br>
+© 2026 MAREY--GUIDI Nathan — Cac40-stock-valuation <br>
 built with Streamlit, Airflow & Fast API<br>
 <i>For educational purposes only — not financial advice</i>
 </div>

@@ -25,9 +25,8 @@ def create_pe_ps_ratios() -> None:
                             COALESCE(SUM(d."Amount"), 0) AS "ttm_dividend"
                         FROM raw.market_prices AS mp
                         LEFT JOIN raw.dividends AS d
-                            ON d."Ticker" = mp."Ticker"
-                            AND d."Date" > mp."Date" - INTERVAL '1 year'
-                            AND d."Date" <= mp."Date"
+                            ON d."Ticker" = mp."Ticker" AND 
+                            extract(year from mp."Date") = extract(year from d."Date") + 1
                         GROUP BY mp."Date", mp."Ticker"
                         )
                     SELECT 

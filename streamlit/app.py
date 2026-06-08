@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 API = os.getenv("API_BASE_URL", "http://fastapi:8000")
 
 st.set_page_config(
-    page_title="Valorisation des actions du CAC 40",
-    page_icon="💰",
+    page_title="CAC 40 Stock Valuation",
+    page_icon=":chart_with_upwards_trend:",
     layout="wide"
 )
 

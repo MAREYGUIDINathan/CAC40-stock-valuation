@@ -1,18 +1,20 @@
 # CAC40 Stock Valuation
 
-[Live Demo](https://streamlit.nathan-mg.com)
+## Presentation Video (click on the image to watch it)
+
+[![Presentation video](http://img.youtube.com/vi/JoIfHWMldN4/0.jpg)](http://www.youtube.com/watch?v=JoIfHWMldN4 "Presentation")
 
 ## Introduction
 
 End-to-end Data Engineering pipeline that tracks and visualizes stock valuation ratios (P/E, P/S, Dividend Yield) for all 40 companies of the CAC40 index, updated daily.
 
-👉 [View the live dashboard](https://streamlit.nathan-mg.com)
+👉 [You can explore the dashboard using this link](https://streamlit.nathan-mg.com)
 
 The subject of stock valuation was chosen because understanding how stocks are priced is genuinely useful — and comparing a stock's price against a company's fundamentals is the foundation of any serious analysis.
 
 **Tech stack:** Docker Compose · Apache Airflow · PostgreSQL · FastAPI · Streamlit
 
-Everything is open-source, designed to deliver an end-to-end data project at low cost.
+Everything is open-source
 
 ## Features
 
@@ -37,23 +39,6 @@ Everything is open-source, designed to deliver an end-to-end data project at low
 The pipeline runs daily via Airflow. CAC40 companies list is scrapped from the Euronext website, Raw financial (stock prices, balance sheet & financials) data is fetched from an external API, stored in PostgreSQL, served through a FastAPI layer, and visualized in Streamlit. Everything runs in Docker Compose.
 
 FastAPI acts as a security layer between Streamlit and the database — credentials are never exposed to the frontend. It also makes the data reusable by any other client (mobile app, third-party integration, etc.) without touching the database layer.
-
-## Run locally
-
-```bash
-git clone https://github.com/MAREYGUIDINathan/CAC40-stock-valuation.git
-cd cac40-stock-valuation
-```
-
-rename ".env.exemple" to ".env" then change credentials
-
-```bash
-docker compose up
-```
-
-once every container is up got to http://127.0.0.1:8080/ and connect with username airflow and the credentials you put in the .env  
-after that go to dag and launch cac40_valuation  
-then you can visit the dashboard (http://127.0.0.1:8501/)
 
 ## Known issues
 
